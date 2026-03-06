@@ -58,7 +58,7 @@ Open an issue with:
 ## Development Setup
 
 ```bash
-git clone https://github.com/user/safeprompt.git
+git clone https://github.com/Alarpi1995/safeprompt.git
 cd safeprompt
 npm install
 npm test

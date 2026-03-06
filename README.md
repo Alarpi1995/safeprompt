@@ -1,165 +1,192 @@
-# SafePrompt - AI Privacy Shield
+<p align="center">
+  <img src="src/icons/icon128.png" alt="SafePrompt Logo" width="100" />
+</p>
 
-**Protect your sensitive data before sending it to AI chatbots.**
+<h1 align="center">SafePrompt - AI Privacy Shield</h1>
 
-SafePrompt is an open-source browser extension that detects and blocks personally identifiable information (PII) from being sent to AI platforms like ChatGPT, Claude, Gemini, and more. 100% local processing, zero data collection, fully auditable.
+<p align="center">
+  <strong>Protect your sensitive data before sending it to AI chatbots.</strong><br>
+  100% local. Open source. 11 languages. Zero data collection.
+</p>
 
-## Why SafePrompt?
+<p align="center">
+  <a href="https://github.com/Alarpi1995/safeprompt/releases"><img src="https://img.shields.io/github/v/release/Alarpi1995/safeprompt?style=flat-square&color=blue" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square" alt="License" /></a>
+  <img src="https://img.shields.io/badge/tests-114%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/patterns-221+-purple?style=flat-square" alt="Patterns" />
+  <img src="https://img.shields.io/badge/languages-11-orange?style=flat-square" alt="Languages" />
+  <img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square" alt="Zero Dependencies" />
+  <img src="https://img.shields.io/badge/manifest-v3-blue?style=flat-square" alt="Manifest V3" />
+</p>
 
-- **52% of AI browser extensions collect user data** (2026 research)
-- **30+ malicious extensions** caught stealing data this year alone
-- Most privacy tools are **closed source** - you can't verify their claims
-- No existing solution offers **multi-language + open source + multi-platform**
+<p align="center">
+  <a href="#installation">Install</a> |
+  <a href="#how-it-works">How It Works</a> |
+  <a href="#supported-languages">Languages</a> |
+  <a href="#vs-competitors">Comparison</a> |
+  <a href="#contributing">Contribute</a>
+</p>
 
-SafePrompt is the first **free, open-source, multi-language** PII protection extension for AI chatbots.
+---
 
-## Features
+## The Problem
 
-### Core Protection
-- **Real-time PII Detection** - Scans text as you type, before you send
-- **Smart Unmasking** - AI sees redacted tokens, you see real data in responses
-- **One-click Redact & Send** - Replace sensitive data with safe placeholders
-- **Block & Warn** - Prevents accidental submission of sensitive information
-- **Consistent Placeholders** - Same value always maps to the same token per session
-- **Auto-Expiry** - Token mappings expire after 4 hours for security
-- **Manual Unmask Button** - Click to restore original data in AI responses
+Every time you use ChatGPT, Claude, or Gemini, you risk accidentally sharing:
+- Credit card numbers, SSNs, national IDs
+- API keys, passwords, tokens
+- Phone numbers, emails, addresses
+- Personal names, dates of birth
 
-### Multi-Language Support (8 Languages)
-| Language | PII Types | Examples |
-|----------|-----------|----------|
-| English | 25+ patterns | SSN, credit cards, API keys, JWT, passwords |
-| Arabic (RTL) | 15+ patterns | Saudi/UAE/Egypt IDs, IBAN, phone numbers |
-| Spanish | 15+ patterns | DNI, NIE, CURP, RFC, IBAN |
-| French | 15+ patterns | NIR, CNI, SIRET, IBAN |
-| Chinese | 12+ patterns | ID card, bank card, phone, WeChat |
-| German | 12+ patterns | Personalausweis, Steuer-ID, IBAN |
-| Portuguese | 12+ patterns | CPF, CNPJ, NIF, PIX |
-| Context-Aware | 20+ patterns | Names, passwords, IDs in natural sentences |
+**52% of AI browser extensions collect user data.** Most privacy tools are closed-source - you can't verify their claims.
 
-### Name Detection (7 Languages)
-Detects personal names shared in context:
-- "My name is John Smith" / "I'm Jane Doe"
-- "Je m'appelle Pierre Dupont"
-- "Me llamo Carlos Garcia"
+## The Solution
 
-### Supported Platforms (10+)
-ChatGPT | Claude | Gemini | Copilot | DeepSeek | Perplexity | Grok | Poe | Mistral | HuggingChat
+SafePrompt scans your text **locally in your browser** before it reaches any AI. It detects 221+ PII patterns across 11 languages, replaces sensitive data with safe placeholders, and lets you unmask the AI's response to see your real data.
 
-### Privacy & Trust
-- **100% Local Processing** - Nothing leaves your browser
-- **Zero Telemetry** - No analytics, no tracking, no data collection
-- **Minimal Permissions** - Only `storage`, `activeTab`, and `contextMenus`
-- **Fully Auditable** - Every line of code is open source
-- **No External Dependencies** - Zero supply chain risk
+**No servers. No telemetry. No trust required - read the code yourself.**
 
-### Keyboard Shortcuts
-| Shortcut | Action |
+---
+
+## How It Works
+
+```
+You type:  "My SSN is 123-45-6789, email john@test.com"
+                    |
+             SafePrompt scans locally
+                    |
+          Warning: 2 sensitive items detected!
+                    |
+         [Block]  [Redact & Send]  [Preview]
+                    |
+AI receives:  "My SSN is [SSN_1], email [EMAIL_2]"
+                    |
+            AI responds with tokens
+                    |
+      [Unmask Data] button restores your real data
+```
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Real-time Detection** | Scans as you type, warns before you send |
+| **Smart Redaction** | Replaces PII with consistent placeholder tokens |
+| **One-click Unmask** | Toggle to see real data in AI responses |
+| **221+ Patterns** | Covers identity, financial, credentials, medical, crypto, and more |
+| **11 Languages** | English, Arabic, Spanish, French, Chinese, German, Portuguese, Turkish, Hindi, Korean, Japanese |
+| **500+ Names Dictionary** | Detects personal names across all supported languages |
+| **Context-Aware** | Understands "my password is X" vs normal text |
+| **Luhn Validation** | Validates credit cards, not just pattern matches |
+| **4-Hour Auto-Expiry** | Token mappings expire automatically for security |
+| **Activity Log** | Track what was blocked, export as CSV |
+
+---
+
+## Supported Languages
+
+| Language | Patterns | Key PII Types |
+|----------|----------|---------------|
+| **English** | 35+ | SSN, credit cards, API keys, JWT, AWS keys, GitHub tokens, Bitcoin/Ethereum, GPS, medical records |
+| **Arabic** | 20+ | Saudi/UAE/Egypt national IDs, IBAN, phone numbers, vehicle plates, driver's licenses |
+| **Spanish** | 20+ | DNI, NIE, CURP, RFC, IBAN, driver's licenses (Spain + Mexico) |
+| **French** | 18+ | NIR, CNI, SIRET, SIREN, IBAN, driver's license |
+| **Chinese** | 15+ | ID card (18-digit validated), bank card, WeChat, QQ, Alipay |
+| **German** | 15+ | Personalausweis, Steuer-ID, Sozialversicherung, IBAN (DE/AT/CH), driver's license |
+| **Portuguese** | 18+ | CPF (validated), CNPJ, NIF, PIX, CNH, IBAN (BR + PT) |
+| **Turkish** | 15+ | TC Kimlik (validated), IBAN TR, vehicle plates, tax number |
+| **Hindi** | 15+ | Aadhaar (validated), PAN, IFSC, GSTIN, UPI, vehicle registration |
+| **Korean** | 12+ | RRN (validated), driver's license, BRN, phone numbers |
+| **Japanese** | 12+ | My Number (validated), Zairyu Card, postal codes, phone numbers |
+
+Plus **context-aware patterns** that detect PII in natural sentences across all languages.
+
+---
+
+## Supported AI Platforms
+
+Works automatically on:
+
+| Platform | Status |
 |----------|--------|
-| `Ctrl+Shift+S` | Quick scan current input |
-| `Alt+R` | Toggle between original/redacted text |
-| Right-click | "Mask with SafePrompt" on selected text |
+| ChatGPT (chat.openai.com / chatgpt.com) | Supported |
+| Claude (claude.ai) | Supported |
+| Gemini (gemini.google.com) | Supported |
+| Microsoft Copilot | Supported |
+| DeepSeek | Supported |
+| Perplexity AI | Supported |
+| Grok (x.ai) | Supported |
+| Poe | Supported |
+| Mistral AI | Supported |
+| HuggingChat | Supported |
 
-### Additional Features
-- Right-click context menu (Mask / Scan selected text)
-- Per-site enable/disable settings
-- Drag & drop file scanning (.txt, .csv, .json)
-- Severity levels (critical / high / medium / low)
-- Typing indicator (colored dot shows PII status)
-- Activity log with CSV export
-- Allowlist (whitelist specific values)
-- Pause/resume protection
-- Dark mode support
-- RTL layout support
-- Badge counter for detected items
-- Quick scan in popup
+---
+
+## vs Competitors
+
+| Feature | SafePrompt | Cloak | ChatWall | Private AI |
+|---------|-----------|-------|----------|------------|
+| **Open Source** | Yes (GPL-3.0) | No | No | No |
+| **100% Local** | Yes | Yes | No (cloud API) | No (cloud API) |
+| **Languages** | 11 | 1 (English) | 1 | 48 (cloud) |
+| **Patterns** | 221+ | 320+ | Unknown | Unknown |
+| **Names Detection** | Yes (11 langs) | No | Yes | Yes |
+| **Validation (Luhn, etc.)** | Yes | Unknown | Unknown | Yes |
+| **Price** | Free | $4.99/mo | $9.99/mo | Enterprise |
+| **Auditable Code** | Yes | No | No | No |
+| **Arabic/RTL Support** | Yes | No | No | Limited |
+
+**SafePrompt is the only free, open-source, multi-language PII protection extension for AI chatbots.**
+
+---
 
 ## Installation
 
 ### From Source (Developer)
 ```bash
-git clone https://github.com/user/safeprompt.git
+git clone https://github.com/Alarpi1995/safeprompt.git
 cd safeprompt
 npm install
-npm test
+npm test    # 114 tests should pass
 ```
 
 Then load in Chrome:
 1. Go to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
 4. Select the `safeprompt` folder
 
 ### Chrome Web Store
 Coming soon.
 
-## How It Works
-
-```
-You type: "My name is Ahmed, SSN is 123-45-6789, email john@test.com"
-                    |
-              SafePrompt scans locally
-                    |
-          Warning: 3 sensitive items detected!
-                    |
-        [Block]  [Redact & Send]  [Preview]  [Edit]
-                    |
-AI receives: "My name is [NAME_1], SSN is [SSN_2], email [EMAIL_3]"
-                    |
-           AI responds with tokens
-                    |
-     [Unmask Data] button appears above response
-                    |
-You see: The real response with your actual data
-```
-
-## Architecture
-
-```
-safeprompt/
-  src/
-    core/
-      detector.js          # PII detection engine (consistent tokens + auto-expiry)
-      interceptor.js       # Form interceptor (Alt+R toggle + context menu + unmask)
-      context-patterns.js  # Context-aware + name detection (7 languages)
-    languages/
-      en.js                # English patterns (25+)
-      ar.js                # Arabic patterns (15+)
-      es.js                # Spanish patterns (15+)
-      fr.js                # French patterns (15+)
-      zh.js                # Chinese patterns (12+)
-      de.js                # German patterns (12+)
-      pt.js                # Portuguese patterns (12+)
-      registry.js          # Language auto-registration
-    platforms/
-      platform-detector.js # AI chatbot detection (10 platforms)
-    ui/
-      warning-banner.js    # Warning overlay + preview modal
-      popup.html/js        # Extension popup + file drop scan
-      options.html/js      # Settings page + per-site disable
-      styles.css           # Styles (dark mode + RTL + unmask button)
-    background.js          # Service worker + context menu
-  tests/
-    detector.test.js       # 79 test cases
-```
+---
 
 ## Detection Categories
 
 | Category | Examples | Severity |
 |----------|----------|----------|
-| **Identity** | SSN, National ID, Passport, Driver's License | Critical |
-| **Financial** | Credit Card (Luhn validated), IBAN, Bank Account | Critical |
-| **Credentials** | API Keys, AWS Keys, JWT, GitHub Tokens, Passwords | Critical |
-| **Names** | Personal names in context (7 languages) | High |
-| **Contact** | Email, Phone Numbers, Addresses | High |
-| **Network** | IP Addresses, MAC Addresses | Medium |
-| **Personal** | Date of Birth | Medium |
+| **Identity** | SSN, national IDs, passports, driver's licenses | Critical |
+| **Financial** | Credit cards (Luhn), IBAN, bank accounts, routing numbers | Critical |
+| **Credentials** | API keys, AWS keys, JWT, GitHub/Slack tokens, passwords | Critical |
+| **Crypto** | Bitcoin addresses, Ethereum addresses | Critical |
+| **Medical** | MRN, NPI, insurance policy numbers | Critical/High |
+| **Names** | Personal names dictionary (500+ names, 11 languages) | High |
+| **Contact** | Email, phone numbers, street addresses, ZIP/postal codes | High |
+| **URLs** | URLs containing PII in query parameters | Critical |
+| **Network** | IPv4, IPv6, MAC addresses | Medium |
+| **Location** | GPS coordinates | High |
+| **Vehicle** | VIN, license plates (multi-country) | Medium/High |
+| **Social** | Social media handles (with context) | Low |
+
+---
 
 ## Configuration
 
 ### Sensitivity Levels
 - **Low** - Only critical items (SSN, credit cards, API keys)
-- **Medium** (default) - Critical + high + medium severity
-- **High** - Everything including low severity items
+- **Medium** (default) - Critical + high + medium
+- **High** - Everything including low severity
 
 ### Settings
 Access via the extension popup or options page:
@@ -169,22 +196,71 @@ Access via the extension popup or options page:
 - Disable SafePrompt on specific sites
 - Export activity log as CSV
 
+### Keyboard Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+S` | Quick scan current input |
+| `Alt+R` | Toggle original/redacted text |
+| Right-click | "Mask with SafePrompt" on selected text |
+
+---
+
+## Architecture
+
+```
+safeprompt/
+  src/
+    core/
+      detector.js          # PII detection engine (221+ patterns)
+      interceptor.js       # Form interceptor + unmask toggle
+      context-patterns.js  # Context-aware detection (all languages)
+      names-dictionary.js  # 500+ names across 11 languages
+    languages/
+      en.js, ar.js, es.js, fr.js, zh.js, de.js, pt.js
+      tr.js, hi.js, ko.js, ja.js
+      registry.js          # Auto-registration
+    platforms/
+      platform-detector.js # AI chatbot detection (11 platforms)
+    ui/
+      warning-banner.js    # Warning overlay + preview
+      popup.html/js        # Extension popup + file scanning
+      options.html/js      # Settings page
+      styles.css           # Dark mode + RTL support
+    background.js          # Service worker
+  tests/
+    detector.test.js       # 114 test cases
+```
+
+---
+
+## Tech Stack
+
+- **Pure JavaScript** - No frameworks, no build tools required
+- **Chrome Extension Manifest V3** - Latest extension platform
+- **Jest** - Testing framework (114 tests)
+- **Zero Dependencies** - No npm packages in production
+
+---
+
 ## Testing
 
 ```bash
-npm test              # Run all 79 tests
+npm test              # Run all 114 tests
 npm test -- --watch   # Watch mode
 ```
+
+---
 
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### Adding a New Language
-1. Create `src/languages/xx.js` following the existing pattern files
-2. Add the language to `src/languages/registry.js`
-3. Add tests in `tests/detector.test.js`
-4. Submit a PR
+### Quick Start: Add a New Language
+1. Create `src/languages/xx.js` following existing pattern files
+2. Add names to `src/core/names-dictionary.js`
+3. Register in `src/languages/registry.js` and `manifest.json`
+4. Add tests in `tests/detector.test.js`
+5. Submit a PR
 
 ### Pattern Format
 ```javascript
@@ -200,14 +276,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 }
 ```
 
-## Tech Stack
+---
 
-- **Pure JavaScript** - No frameworks, no build tools required
-- **Chrome Extension Manifest V3** - Latest extension platform
-- **Jest** - Testing framework
-- **Zero Dependencies** - No npm packages in production
-
-## Security
+## Privacy & Security
 
 SafePrompt processes everything locally in your browser. We never:
 - Send data to external servers
@@ -215,16 +286,25 @@ SafePrompt processes everything locally in your browser. We never:
 - Store sensitive data (only detection counts in local storage)
 - Require unnecessary permissions
 
-If you find a security vulnerability, please report it responsibly. See [SECURITY.md](SECURITY.md).
+**Permissions used:** `storage` (settings), `activeTab` (scan current page), `contextMenus` (right-click menu)
+
+See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) | [SECURITY.md](SECURITY.md)
+
+---
 
 ## License
 
 GPL-3.0-only - see [LICENSE](LICENSE)
 
-## Acknowledgments
+---
 
-Built with the goal of making AI safer for everyone, in every language.
+## Star History
+
+If SafePrompt helps protect your privacy, consider giving it a star! It helps others discover the project.
 
 ---
 
-**SafePrompt** - Because your data should stay yours.
+<p align="center">
+  <strong>SafePrompt</strong> - Because your data should stay yours.<br>
+  <a href="https://www.aitechcx.com">aitechcx.com</a>
+</p>
