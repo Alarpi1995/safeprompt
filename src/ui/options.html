@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafePrompt Settings</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg2: #f8f9fa;
+      --text: #1a1a2e;
+      --text2: #6b7280;
+      --border: #e5e7eb;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --safe: #22c55e;
+      --danger: #ef4444;
+      --radius: 10px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e2e;
+        --bg2: #2a2a3e;
+        --text: #e4e4e7;
+        --text2: #a1a1aa;
+        --border: #3f3f5c;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text2);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text2);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .tab-panel { display: none; }
+    .tab-panel--active { display: block; }
+
+    /* Section */
+    .section {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .section__title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .section__desc {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 16px;
+    }
+
+    /* Form */
+    label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn--primary { background: var(--primary); color: white; }
+    .btn--primary:hover { background: var(--primary-hover); }
+    .btn--danger { background: var(--danger); color: white; }
+    .btn--secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+
+    .btn-group { display: flex; gap: 8px; margin-top: 16px; }
+
+    /* Activity log table */
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .log-table th {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 2px solid var(--border);
+      color: var(--text2);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .log-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-empty {
+      text-align: center;
+      padding: 32px;
+      color: var(--text2);
+    }
+
+    .saved-msg {
+      display: none;
+      color: var(--safe);
+      font-weight: 600;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .saved-msg--visible { display: block; }
+  </style>
+</head>
+<body>
+  <h1>SafePrompt Settings</h1>
+  <p class="subtitle">Configure your AI privacy protection</p>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab tab--active" data-tab="general">General</button>
+    <button class="tab" data-tab="languages">Languages</button>
+    <button class="tab" data-tab="categories">Categories</button>
+    <button class="tab" data-tab="allowlist">Allowlist</button>
+    <button class="tab" data-tab="activity">Activity Log</button>
+  </div>
+
+  <!-- General -->
+  <div class="tab-panel tab-panel--active" id="panel-general">
+    <div class="section">
+      <div class="section__title">Sensitivity Level</div>
+      <div class="section__desc">Controls which severity levels are detected. Higher sensitivity catches more but may have more false positives.</div>
+      <select id="sensitivity">
+        <option value="low">Low - Only critical items</option>
+        <option value="medium" selected>Medium - Critical + High + Medium</option>
+        <option value="high">High - Everything including low severity</option>
+      </select>
+    </div>
+    <div class="saved-msg" id="savedMsg">Settings saved</div>
+  </div>
+
+  <!-- Languages -->
+  <div class="tab-panel" id="panel-languages">
+    <div class="section">
+      <div class="section__title">Enabled Languages</div>
+      <div class="section__desc">Choose which language patterns to use for PII detection.</div>
+      <div id="languageToggles">
+        <label><input type="checkbox" data-lang="en" checked> English</label>
+        <label><input type="checkbox" data-lang="ar" checked> Arabic (&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;)</label>
+        <label><input type="checkbox" data-lang="es" checked> Spanish (Espa&#241;ol)</label>
+        <label><input type="checkbox" data-lang="fr" checked> French (Fran&#231;ais)</label>
+        <label><input type="checkbox" data-lang="zh" checked> Chinese (&#20013;&#25991;)</label>
+        <label><input type="checkbox" data-lang="de" checked> German (Deutsch)</label>
+        <label><input type="checkbox" data-lang="pt" checked> Portuguese (Portugu&#234;s)</label>
+        <label><input type="checkbox" data-lang="context" checked> Context-Aware Detection</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Categories -->
+  <div class="tab-panel" id="panel-categories">
+    <div class="section">
+      <div class="section__title">Detection Categories</div>
+      <div class="section__desc">Enable or disable specific categories of PII detection.</div>
+      <div id="categoryToggles">
+        <label><input type="checkbox" data-cat="identity" checked> Identity (SSN, National ID, Passport)</label>
+        <label><input type="checkbox" data-cat="financial" checked> Financial (Credit Cards, IBAN, Bank Accounts)</label>
+        <label><input type="checkbox" data-cat="contact" checked> Contact (Email, Phone, Address)</label>
+        <label><input type="checkbox" data-cat="credentials" checked> Credentials (API Keys, Passwords, Tokens)</label>
+        <label><input type="checkbox" data-cat="medical" checked> Medical (Date of Birth)</label>
+        <label><input type="checkbox" data-cat="network" checked> Network (IP Address, MAC Address)</label>
+        <label><input type="checkbox" data-cat="personal" checked> Personal (Date of Birth)</label>
+        <label><input type="checkbox" data-cat="names" checked> Names (Personal Names in Context)</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Allowlist -->
+  <div class="tab-panel" id="panel-allowlist">
+    <div class="section">
+      <div class="section__title">Allowlist</div>
+      <div class="section__desc">Enter values to exclude from detection (one per line). For example, your company's public email domain.</div>
+      <textarea id="allowlistInput" placeholder="example.com&#10;public@company.com&#10;192.168.1.1"></textarea>
+      <div class="btn-group">
+        <button class="btn btn--primary" id="saveAllowlist">Save Allowlist</button>
+      </div>
+    </div>
+    <div class="section" style="margin-top:16px;">
+      <div class="section__title">Disabled Sites</div>
+      <div class="section__desc">Enter domains where SafePrompt should be completely disabled (one per line).</div>
+      <textarea id="disabledSitesInput" placeholder="example.com&#10;internal-chat.company.com"></textarea>
+      <div class="btn-group">
+        <button class="btn btn--primary" id="saveDisabledSites">Save Disabled Sites</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="tab-panel" id="panel-activity">
+    <div class="section">
+      <div class="section__title">Activity Log</div>
+      <div class="section__desc">Recent PII detections (stored locally, never sent anywhere).</div>
+      <div id="activityLog">
+        <div class="log-empty">Loading...</div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn--secondary" id="exportCSV">Export CSV</button>
+        <button class="btn btn--danger" id="clearLog">Clear Log</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../core/detector.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

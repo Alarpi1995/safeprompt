@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+*.zip
+*.crx
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# Temp
+tmp/
+temp/

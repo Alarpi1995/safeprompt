@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "SafePrompt - AI Privacy Shield",
+  "version": "1.0.0",
+  "description": "Protect your sensitive data before sending it to AI chatbots. Detects PII, credentials, and private information in real-time. Supports 10+ languages including Arabic, Spanish, Chinese, and more.",
+  "permissions": ["storage", "activeTab", "contextMenus"],
+  "icons": {
+    "16": "src/icons/icon16.png",
+    "48": "src/icons/icon48.png",
+    "128": "src/icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/ui/popup.html",
+    "default_icon": {
+      "16": "src/icons/icon16.png",
+      "48": "src/icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://chat.deepseek.com/*",
+        "https://www.perplexity.ai/*",
+        "https://grok.x.ai/*",
+        "https://poe.com/*",
+        "https://chat.mistral.ai/*",
+        "https://huggingface.co/chat/*"
+      ],
+      "js": [
+        "src/core/detector.js",
+        "src/languages/en.js",
+        "src/languages/ar.js",
+        "src/languages/es.js",
+        "src/languages/fr.js",
+        "src/languages/zh.js",
+        "src/languages/de.js",
+        "src/languages/pt.js",
+        "src/core/context-patterns.js",
+        "src/languages/registry.js",
+        "src/platforms/platform-detector.js",
+        "src/ui/warning-banner.js",
+        "src/core/interceptor.js"
+      ],
+      "css": ["src/ui/styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "options_page": "src/ui/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["src/ui/*.html", "src/icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
