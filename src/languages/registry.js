@@ -19,6 +19,30 @@
     for (const lang of langs) {
       if (lang) detector.registerLanguage(lang.code, lang);
     }
+
+    // Register dictionary-based name detection
+    const names = typeof SafePromptNames !== 'undefined' ? SafePromptNames : null;
+    if (names) {
+      const nameLangs = { en: 'English', ar: 'Arabic', es: 'Spanish', fr: 'French', de: 'German', pt: 'Portuguese', zh: 'Chinese' };
+      for (const [code, label] of Object.entries(nameLangs)) {
+        const pat = names.buildPattern(code);
+        if (!pat) continue;
+        detector.registerLanguage('names_' + code, {
+          code: 'names_' + code,
+          name: label + ' Names',
+          nativeName: label + ' Names Dictionary',
+          patterns: {
+            names: [{
+              type: 'name_dict_' + code,
+              label: 'Personal Name (' + label + ')',
+              pattern: code === 'ar' ? '(?:' + pat + ')' : code === 'zh' ? '(?:' + pat + ')' : pat,
+              flags: 'g',
+              severity: 'high',
+            }],
+          },
+        });
+      }
+    }
   }
 
   // Browser context: create global detector and register

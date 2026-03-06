@@ -346,7 +346,35 @@ class SafePromptDetector {
       case 'name_context_de':
       case 'name_context_zh':
       case 'name_context_pt':
+      case 'name_dict_en':
+      case 'name_dict_ar':
+      case 'name_dict_es':
+      case 'name_dict_fr':
+      case 'name_dict_de':
+      case 'name_dict_pt':
+      case 'name_dict_zh':
         return value[0] + '***';
+      case 'bitcoin_address':
+      case 'ethereum_address':
+        return value.slice(0, 6) + '••••' + value.slice(-4);
+      case 'gps_coordinates':
+        return '**.****, **,****';
+      case 'url_pii':
+        return value.replace(/=[^&\s]{2,}/g, '=***');
+      case 'social_handle':
+        return '@***';
+      case 'mrn':
+      case 'npi':
+      case 'insurance_id':
+        return '***' + value.slice(-4);
+      case 'plate_sa':
+      case 'plate_eg':
+      case 'us_plate':
+        return '***' + value.slice(-3);
+      case 'ipv6':
+        return value.slice(0, 5) + ':••••:••••';
+      case 'vin':
+        return value.slice(0, 3) + '**************';
       default:
         if (value.length <= 6) return value[0] + '*'.repeat(value.length - 1);
         return value.slice(0, 2) + '*'.repeat(value.length - 4) + value.slice(-2);

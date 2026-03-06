@@ -710,3 +710,159 @@ describe('Core - CSV Export', () => {
     expect(csv).toContain('email, ssn');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// New Patterns - v1.1
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('English - Crypto', () => {
+  const d = createDetector();
+
+  test('detects Bitcoin address', () => {
+    const results = d.scan('Send to 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+    const btc = results.find((r) => r.type === 'bitcoin_address');
+    expect(btc).toBeDefined();
+  });
+
+  test('detects Ethereum address', () => {
+    const results = d.scan('ETH: 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18');
+    const eth = results.find((r) => r.type === 'ethereum_address');
+    expect(eth).toBeDefined();
+  });
+});
+
+describe('English - Network Extended', () => {
+  const d = createDetector();
+
+  test('detects IPv6 address', () => {
+    const results = d.scan('Server: 2001:0db8:85a3:0000:0000:8a2e:0370:7334');
+    const ipv6 = results.find((r) => r.type === 'ipv6');
+    expect(ipv6).toBeDefined();
+  });
+
+  test('skips localhost IPv4', () => {
+    const results = d.scan('localhost: 127.0.0.1');
+    const ip = results.find((r) => r.type === 'ipv4');
+    expect(ip).toBeUndefined();
+  });
+});
+
+describe('English - Location', () => {
+  const d = createDetector();
+
+  test('detects GPS coordinates', () => {
+    const results = d.scan('Location: 37.7749, -122.4194');
+    const gps = results.find((r) => r.type === 'gps_coordinates');
+    expect(gps).toBeDefined();
+  });
+});
+
+describe('English - Medical/Insurance', () => {
+  const d = createDetector();
+
+  test('detects medical record number', () => {
+    const results = d.scan('MRN: AB12345678');
+    const mrn = results.find((r) => r.type === 'mrn');
+    expect(mrn).toBeDefined();
+  });
+
+  test('detects NPI number', () => {
+    const results = d.scan('NPI: 1234567890');
+    const npi = results.find((r) => r.type === 'npi');
+    expect(npi).toBeDefined();
+  });
+
+  test('detects insurance policy number', () => {
+    const results = d.scan('policy number: ABC-123456789');
+    const ins = results.find((r) => r.type === 'insurance_id');
+    expect(ins).toBeDefined();
+  });
+});
+
+describe('English - URLs with PII', () => {
+  const d = createDetector();
+
+  test('detects PII inside URL with email parameter', () => {
+    const results = d.scan('Link: https://example.com/form?email=john@test.com&ref=123');
+    // The email inside URL is detected (either as url_pii or email)
+    const pii = results.find((r) => r.type === 'url_pii' || r.type === 'email');
+    expect(pii).toBeDefined();
+  });
+
+  test('detects URL with session token parameter', () => {
+    const results = d.scan('https://api.site.com/auth?session=abc123def456ghi789jkl');
+    const url = results.find((r) => r.type === 'url_pii');
+    expect(url).toBeDefined();
+  });
+});
+
+describe('English - Social Media', () => {
+  const d = createDetector();
+
+  test('detects social handle with context', () => {
+    const results = d.scan('follow me on twitter @johndoe123');
+    const handle = results.find((r) => r.type === 'social_handle');
+    expect(handle).toBeDefined();
+  });
+
+  test('does not detect social handle without context', () => {
+    const results = d.scan('use @override annotation');
+    const handle = results.find((r) => r.type === 'social_handle');
+    expect(handle).toBeUndefined();
+  });
+});
+
+describe('Arabic - Vehicle', () => {
+  const d = createDetector();
+
+  test('detects Saudi plate with context', () => {
+    const results = d.scan('رقم اللوحة ABC 1234');
+    const plate = results.find((r) => r.type === 'plate_sa');
+    expect(plate).toBeDefined();
+  });
+});
+
+describe('Names Dictionary', () => {
+  const { SafePromptNames } = require('../src/core/names-dictionary');
+
+  test('builds English pattern', () => {
+    const pat = SafePromptNames.buildPattern('en');
+    expect(pat).toBeDefined();
+    expect(pat).toContain('James');
+    expect(pat).toContain('Mary');
+  });
+
+  test('builds Arabic pattern', () => {
+    const pat = SafePromptNames.buildPattern('ar');
+    expect(pat).toBeDefined();
+    expect(pat).toContain('محمد');
+    expect(pat).toContain('فاطمة');
+  });
+
+  test('detects English name via dictionary', () => {
+    const d = createDetector();
+    const names = require('../src/core/names-dictionary').SafePromptNames;
+    const pat = names.buildPattern('en');
+    d.registerLanguage('names_en', {
+      code: 'names_en', name: 'EN Names', nativeName: 'EN Names',
+      patterns: { names: [{ type: 'name_dict_en', label: 'Name', pattern: pat, flags: 'g', severity: 'high' }] },
+    });
+    const results = d.scan('Please contact Jennifer about the project');
+    const name = results.find((r) => r.type === 'name_dict_en');
+    expect(name).toBeDefined();
+    expect(name.value).toBe('Jennifer');
+  });
+
+  test('detects Arabic name via dictionary', () => {
+    const d = createDetector();
+    const names = require('../src/core/names-dictionary').SafePromptNames;
+    const pat = names.buildPattern('ar');
+    d.registerLanguage('names_ar', {
+      code: 'names_ar', name: 'AR Names', nativeName: 'AR Names',
+      patterns: { names: [{ type: 'name_dict_ar', label: 'Name', pattern: '(?:' + pat + ')', flags: 'g', severity: 'high' }] },
+    });
+    const results = d.scan('تواصل مع فاطمة بخصوص الطلب');
+    const name = results.find((r) => r.type === 'name_dict_ar');
+    expect(name).toBeDefined();
+  });
+});

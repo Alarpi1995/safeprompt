@@ -159,6 +159,28 @@ const SafePromptAR = {
       },
     ],
 
+    // ── المركبات (Vehicle) ──────────────────────────────────────────────────
+    vehicle: [
+      {
+        type: 'plate_sa',
+        label: 'لوحة سيارة سعودية',
+        pattern: '\\b[A-Z]{3}\\s?\\d{3,4}\\b',
+        flags: 'g',
+        severity: 'medium',
+        keywords: ['لوحة', 'سيارة', 'مركبة', 'plate', 'رقم اللوحة'],
+        contextRequired: true,
+      },
+      {
+        type: 'plate_eg',
+        label: 'لوحة سيارة مصرية',
+        pattern: '\\b[\\u0600-\\u06FF]{1,3}\\s?\\d{1,4}\\s?[\\u0600-\\u06FF]{1,3}\\b',
+        flags: 'g',
+        severity: 'medium',
+        keywords: ['لوحة', 'سيارة', 'عربية', 'plate'],
+        contextRequired: true,
+      },
+    ],
+
     // ── بيانات الاعتماد (Credentials) ────────────────────────────────────────
     credentials: [
       {

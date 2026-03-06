@@ -244,11 +244,113 @@ const SafePromptEN = {
         },
       },
       {
+        type: 'ipv6',
+        label: 'IP Address (v6)',
+        pattern: '\\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\\b',
+        flags: 'g',
+        severity: 'medium',
+        validate(v) {
+          if (v === '0000:0000:0000:0000:0000:0000:0000:0001') return false;
+          return true;
+        },
+      },
+      {
         type: 'mac_address',
         label: 'MAC Address',
         pattern: '\\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\\b',
         flags: 'g',
         severity: 'medium',
+      },
+    ],
+
+    // ── Crypto ────────────────────────────────────────────────────────────────
+    crypto: [
+      {
+        type: 'bitcoin_address',
+        label: 'Bitcoin Address',
+        pattern: '\\b(?:bc1[a-zA-HJ-NP-Z0-9]{25,39}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\\b',
+        flags: 'g',
+        severity: 'critical',
+      },
+      {
+        type: 'ethereum_address',
+        label: 'Ethereum Address',
+        pattern: '\\b0x[0-9a-fA-F]{40}\\b',
+        flags: 'g',
+        severity: 'critical',
+      },
+    ],
+
+    // ── Location ──────────────────────────────────────────────────────────────
+    location: [
+      {
+        type: 'gps_coordinates',
+        label: 'GPS Coordinates',
+        pattern: '[-+]?(?:[1-8]?\\d(?:\\.\\d{4,})|90(?:\\.0{4,}))\\s*,\\s*[-+]?(?:1[0-7]\\d|0?\\d{1,2})(?:\\.\\d{4,})',
+        flags: 'g',
+        severity: 'high',
+      },
+    ],
+
+    // ── Social Media ──────────────────────────────────────────────────────────
+    social: [
+      {
+        type: 'social_handle',
+        label: 'Social Media Handle',
+        pattern: '(?:@[a-zA-Z_][a-zA-Z0-9_.]{2,30})',
+        flags: 'g',
+        severity: 'low',
+        keywords: ['twitter', 'instagram', 'tiktok', 'handle', 'username', 'follow', 'account', 'profile', 'snap', 'x.com'],
+        contextRequired: true,
+      },
+    ],
+
+    // ── Vehicle ───────────────────────────────────────────────────────────────
+    vehicle: [
+      {
+        type: 'vin',
+        label: 'Vehicle Identification Number',
+        pattern: '\\b[A-HJ-NPR-Z0-9]{17}\\b',
+        flags: 'g',
+        severity: 'high',
+        keywords: ['VIN', 'vehicle', 'chassis', 'car'],
+        contextRequired: true,
+      },
+    ],
+
+    // ── Medical / Insurance ───────────────────────────────────────────────────
+    medical_insurance: [
+      {
+        type: 'mrn',
+        label: 'Medical Record Number',
+        pattern: '(?:MRN|MR#|Med\\s*Rec)[:\\s]\\s*[A-Z0-9]{5,15}\\b',
+        flags: 'gi',
+        severity: 'critical',
+      },
+      {
+        type: 'npi',
+        label: 'NPI Number',
+        pattern: '(?:NPI)[:\\s]\\s*\\d{10}\\b',
+        flags: 'gi',
+        severity: 'high',
+      },
+      {
+        type: 'insurance_id',
+        label: 'Insurance Policy Number',
+        pattern: '(?:policy|insurance|member)\\s*(?:number|no\\.?|#|id)[:\\s]\\s*[A-Z0-9\\-]{6,20}\\b',
+        flags: 'gi',
+        severity: 'high',
+      },
+    ],
+
+    // ── URLs with PII ─────────────────────────────────────────────────────────
+    urls: [
+      {
+        type: 'url_pii',
+        label: 'URL with Personal Data',
+        pattern: 'https?://[^\\s]+[?&](?:email|mail|user|name|phone|ssn|password|token|key|secret|auth|session)=[^\\s&]{2,}[^\\s]*',
+        flags: 'gi',
+        severity: 'critical',
       },
     ],
   },

@@ -41,6 +41,7 @@
         "src/languages/de.js",
         "src/languages/pt.js",
         "src/core/context-patterns.js",
+        "src/core/names-dictionary.js",
         "src/languages/registry.js",
         "src/platforms/platform-detector.js",
         "src/ui/warning-banner.js",
