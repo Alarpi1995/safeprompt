@@ -347,13 +347,21 @@
     const btn = document.createElement('button');
     btn.className = 'sp-unmask-btn';
     btn.textContent = 'Unmask Data';
-    btn.title = 'Restore original PII values (only visible to you)';
+    btn.title = 'Toggle between masked and unmasked data';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      unmaskElement(el);
-      btn.textContent = 'Unmasked';
-      btn.disabled = true;
-      btn.style.opacity = '0.5';
+      if (!el._spUnmasked) {
+        // Save original masked content before unmasking
+        el._spMaskedHTML = el.innerHTML;
+        unmaskElement(el);
+        btn.textContent = 'Mask Data';
+        btn.style.opacity = '1';
+      } else {
+        // Restore masked content
+        el.innerHTML = el._spMaskedHTML;
+        el._spUnmasked = false;
+        btn.textContent = 'Unmask Data';
+      }
     });
 
     // Insert the button before the response element or as first child
