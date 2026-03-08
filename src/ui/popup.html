@@ -32,14 +32,13 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      width: 340px;
+      width: 360px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       font-size: 14px;
     }
 
-    /* Header */
     .header {
       display: flex;
       align-items: center;
@@ -70,7 +69,6 @@
       margin-left: 4px;
     }
 
-    /* Toggle */
     .toggle {
       position: relative;
       width: 44px;
@@ -104,15 +102,9 @@
       transition: 0.3s;
     }
 
-    .toggle input:checked + .toggle__slider {
-      background: var(--safe);
-    }
+    .toggle input:checked + .toggle__slider { background: var(--safe); }
+    .toggle input:checked + .toggle__slider::before { transform: translateX(20px); }
 
-    .toggle input:checked + .toggle__slider::before {
-      transform: translateX(20px);
-    }
-
-    /* Status */
     .status {
       display: flex;
       align-items: center;
@@ -132,10 +124,42 @@
     .status__dot--active { background: var(--safe); }
     .status__dot--paused { background: var(--warning); }
 
-    /* Stats */
+    .profile {
+      padding: 12px 16px 4px;
+    }
+
+    .profile__label {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.4px;
+    }
+
+    .profile select,
+    .scan-section textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg2);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .profile select {
+      padding: 10px;
+    }
+
+    .profile__hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+
     .stats {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
       padding: 16px;
     }
@@ -148,7 +172,7 @@
     }
 
     .stat__value {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: var(--primary);
     }
@@ -159,25 +183,19 @@
       margin-top: 4px;
     }
 
-    /* Quick scan */
     .scan-section {
       padding: 0 16px 16px;
     }
 
     .scan-section textarea {
-      width: 100%;
-      height: 70px;
+      height: 84px;
       padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--bg2);
-      color: var(--text);
       font-family: inherit;
-      font-size: 13px;
       resize: none;
     }
 
-    .scan-section textarea:focus {
+    .scan-section textarea:focus,
+    .profile select:focus {
       outline: none;
       border-color: var(--primary);
     }
@@ -198,13 +216,72 @@
 
     .scan-btn:hover { background: var(--primary-hover); }
 
-    /* Scan results */
     .results {
       padding: 0 16px 16px;
       display: none;
     }
 
     .results--visible { display: block; }
+
+    .results__summary,
+    .results__rewrite {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .results__summary-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .results__score {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      background: var(--bg);
+      border: 2px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .results__summary-title {
+      font-weight: 700;
+    }
+
+    .results__summary-subtitle {
+      color: var(--text2);
+      font-size: 12px;
+    }
+
+    .results__bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.22);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .results__bar span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e 0%, #eab308 45%, #f97316 72%, #ef4444 100%);
+    }
+
+    .results__reasons {
+      padding-left: 18px;
+      color: var(--text2);
+      font-size: 12px;
+      display: grid;
+      gap: 4px;
+    }
 
     .results__title {
       font-size: 12px;
@@ -232,7 +309,21 @@
       padding: 8px;
     }
 
-    /* Footer */
+    .results__rewrite-title {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .results__rewrite-body {
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .footer {
       display: flex;
       gap: 8px;
@@ -255,10 +346,20 @@
     }
 
     .footer-btn:hover { background: var(--border); }
+
+    .footer-select {
+      flex: 1;
+      padding: 8px;
+      background: var(--bg2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
-  <!-- Header -->
   <div class="header">
     <div class="header__brand">
       <img class="header__logo" src="../icons/icon48.png" alt="SafePrompt">
@@ -270,41 +371,65 @@
     </label>
   </div>
 
-  <!-- Status -->
   <div class="status" id="statusBar">
     <span class="status__dot status__dot--active" id="statusDot"></span>
     <span id="statusText">Protection active</span>
   </div>
 
-  <!-- Stats -->
+  <div class="profile">
+    <div class="profile__label">Profile</div>
+    <select id="profileSelect">
+      <option value="balanced">Balanced</option>
+      <option value="developer">Developer</option>
+      <option value="medical">Medical</option>
+      <option value="legal">Legal</option>
+      <option value="student">Student</option>
+      <option value="custom">Custom</option>
+    </select>
+    <div class="profile__hint" id="profileHint"></div>
+  </div>
+
   <div class="stats">
     <div class="stat">
       <div class="stat__value" id="totalBlocked">0</div>
-      <div class="stat__label">Total Blocked</div>
+      <div class="stat__label">Total</div>
     </div>
     <div class="stat">
       <div class="stat__value" id="thisMonth">0</div>
-      <div class="stat__label">This Month</div>
+      <div class="stat__label">Month</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" id="averageScore">0</div>
+      <div class="stat__label">Avg Score</div>
     </div>
   </div>
 
-  <!-- Quick Scan -->
   <div class="scan-section">
     <textarea id="scanInput" placeholder="Paste text here or drop a .txt/.csv file to scan..."></textarea>
     <button class="scan-btn" id="scanBtn">Scan for PII</button>
     <div class="drop-hint" id="dropHint" style="display:none;text-align:center;padding:6px;color:var(--primary);font-size:11px;font-weight:600;">Drop file to scan</div>
   </div>
 
-  <!-- Results -->
   <div class="results" id="results">
+    <div class="results__summary" id="resultsSummary"></div>
     <div class="results__title">Detections</div>
     <div id="resultsList"></div>
+    <div class="results__rewrite" id="resultsRewrite"></div>
   </div>
 
-  <!-- Footer -->
   <div class="footer">
-    <button class="footer-btn" id="settingsBtn">Settings</button>
-    <button class="footer-btn" id="activityBtn">Activity Log</button>
+    <div class="footer__row">
+      <button class="footer-btn" id="settingsBtn">Settings</button>
+      <button class="footer-btn" id="activityBtn">Activity Log</button>
+    </div>
+    <div class="footer__row">
+      <select class="footer-select" id="exportFormat">
+        <option value="txt">Export TXT</option>
+        <option value="markdown">Export Markdown</option>
+        <option value="json">Export JSON</option>
+      </select>
+      <button class="footer-btn" id="safeExportBtn">Safe Export</button>
+    </div>
   </div>
 
   <script src="../core/detector.js"></script>
@@ -315,7 +440,14 @@
   <script src="../languages/zh.js"></script>
   <script src="../languages/de.js"></script>
   <script src="../languages/pt.js"></script>
+  <script src="../languages/tr.js"></script>
+  <script src="../languages/hi.js"></script>
+  <script src="../languages/ko.js"></script>
+  <script src="../languages/ja.js"></script>
   <script src="../core/context-patterns.js"></script>
+  <script src="../core/names-dictionary.js"></script>
+  <script src="../languages/registry.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
+

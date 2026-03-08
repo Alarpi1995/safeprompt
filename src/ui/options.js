@@ -1,15 +1,27 @@
 /**
  * SafePrompt - Options Page Script
- * Manages settings, language toggles, category toggles, allowlist, and activity log.
+ * Manages profiles, settings, allowlist, policy packs, and activity log.
  */
 
 (function () {
   const detector = new SafePromptDetector();
 
-  // DOM
   const tabs = document.querySelectorAll('.tab');
   const panels = document.querySelectorAll('.tab-panel');
+  const profileSelect = document.getElementById('profileSelect');
+  const profileSummary = document.getElementById('profileSummary');
   const sensitivitySelect = document.getElementById('sensitivity');
+  const policyPackSelect = document.getElementById('policyPackSelect');
+  const protectedTermsInput = document.getElementById('protectedTermsInput');
+  const savePolicyPackBtn = document.getElementById('savePolicyPack');
+  const exportPolicyPackBtn = document.getElementById('exportPolicyPack');
+  const importPolicyPackBtn = document.getElementById('importPolicyPack');
+  const policyPackFile = document.getElementById('policyPackFile');
+  const memoryGuardEnabled = document.getElementById('memoryGuardEnabled');
+  const clipboardGuardianEnabled = document.getElementById('clipboardGuardianEnabled');
+  const falsePositiveTrainerEnabled = document.getElementById('falsePositiveTrainerEnabled');
+  const clearMemoryBtn = document.getElementById('clearMemoryBtn');
+  const clearTrainerBtn = document.getElementById('clearTrainerBtn');
   const savedMsg = document.getElementById('savedMsg');
   const allowlistInput = document.getElementById('allowlistInput');
   const saveAllowlistBtn = document.getElementById('saveAllowlist');
@@ -19,22 +31,16 @@
   const disabledSitesInput = document.getElementById('disabledSitesInput');
   const saveDisabledSitesBtn = document.getElementById('saveDisabledSites');
 
-  // ---------------------------------------------------------------------------
-  // Tabs
-  // ---------------------------------------------------------------------------
-
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       tabs.forEach((t) => t.classList.remove('tab--active'));
       panels.forEach((p) => p.classList.remove('tab-panel--active'));
       tab.classList.add('tab--active');
       document.getElementById(`panel-${tab.dataset.tab}`).classList.add('tab-panel--active');
-
       if (tab.dataset.tab === 'activity') loadActivityLog();
     });
   });
 
-  // Handle hash-based navigation
   if (window.location.hash === '#activity') {
     tabs.forEach((t) => t.classList.remove('tab--active'));
     panels.forEach((p) => p.classList.remove('tab-panel--active'));
@@ -43,101 +49,242 @@
     loadActivityLog();
   }
 
-  // ---------------------------------------------------------------------------
-  // Init
-  // ---------------------------------------------------------------------------
-
   async function init() {
     await detector.loadSettings();
+    renderProfileOptions();
+    renderPolicyOptions();
+    syncSettingsToUI();
+    syncLanguageCheckboxes();
+    syncCategoryCheckboxes();
 
-    // Sensitivity
-    sensitivitySelect.value = detector.settings.sensitivity;
-
-    // Languages
-    if (detector.settings.enabledLanguages) {
-      document.querySelectorAll('[data-lang]').forEach((el) => {
-        el.checked = detector.settings.enabledLanguages.has(el.dataset.lang);
-      });
-    }
-
-    // Categories
-    if (detector.settings.enabledCategories) {
-      document.querySelectorAll('[data-cat]').forEach((el) => {
-        el.checked = detector.settings.enabledCategories.has(el.dataset.cat);
-      });
-    }
-
-    // Allowlist
-    if (detector.settings.allowlist && detector.settings.allowlist.length > 0) {
+    if (detector.settings.allowlist?.length) {
       allowlistInput.value = detector.settings.allowlist.join('\n');
     }
-
-    // Disabled sites
-    if (detector.settings.disabledSites && detector.settings.disabledSites.length > 0) {
+    if (detector.settings.disabledSites?.length) {
       disabledSitesInput.value = detector.settings.disabledSites.join('\n');
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Save Settings
-  // ---------------------------------------------------------------------------
+  function syncSettingsToUI() {
+    profileSelect.value = detector.settings.profile || 'balanced';
+    sensitivitySelect.value = detector.settings.sensitivity;
+    policyPackSelect.value = detector.settings.policyPack || 'none';
+    protectedTermsInput.value = (detector.settings.protectedTerms || []).join('\n');
+    memoryGuardEnabled.checked = detector.settings.memoryGuardEnabled !== false;
+    clipboardGuardianEnabled.checked = detector.settings.clipboardGuardianEnabled !== false;
+    falsePositiveTrainerEnabled.checked = detector.settings.falsePositiveTrainerEnabled !== false;
+    renderProfileSummary(detector.getProfile(detector.settings.profile));
+    updateGuardButtons();
+  }
 
-  function showSaved() {
+  function renderProfileOptions() {
+    const profiles = detector.getProfileOptions();
+    profileSelect.innerHTML = profiles.map((profile) => (
+      `<option value="${escapeHTML(profile.id)}">${escapeHTML(profile.name)}</option>`
+    )).join('');
+  }
+
+  function renderPolicyOptions() {
+    const policies = detector.getPolicyPackOptions();
+    policyPackSelect.innerHTML = policies.map((policy) => (
+      `<option value="${escapeHTML(policy.id)}">${escapeHTML(policy.name)}</option>`
+    )).join('');
+  }
+
+  function syncLanguageCheckboxes() {
+    const selected = detector.settings.enabledLanguages;
+    document.querySelectorAll('[data-lang]').forEach((el) => {
+      el.checked = !selected || selected.has(el.dataset.lang);
+    });
+  }
+
+  function syncCategoryCheckboxes() {
+    const selected = detector.settings.enabledCategories;
+    document.querySelectorAll('[data-cat]').forEach((el) => {
+      el.checked = !selected || selected.has(el.dataset.cat);
+    });
+  }
+
+  function renderProfileSummary(profile) {
+    const categories = profile.enabledCategories && profile.enabledCategories.length
+      ? profile.enabledCategories.join(', ')
+      : 'All categories';
+
+    const policy = detector.getPolicyPack(detector.settings.policyPack);
+    profileSummary.innerHTML = `
+      <div class="profile-summary__name">${escapeHTML(profile.name)}</div>
+      <div class="profile-summary__desc">${escapeHTML(profile.description)}</div>
+      <div class="profile-summary__meta">
+        <span class="chip">Sensitivity: ${escapeHTML(profile.sensitivity || detector.settings.sensitivity)}</span>
+        <span class="chip">Scope: ${escapeHTML(categories)}</span>
+        <span class="chip">Policy: ${escapeHTML(policy.name)}</span>
+      </div>
+    `;
+  }
+
+  function updateGuardButtons() {
+    clearMemoryBtn.textContent = `Clear Memory Guard Cache (${detector._conversationMemory.length})`;
+    clearTrainerBtn.textContent = `Clear Trainer Rules (${detector.getFalsePositiveRuleCount()})`;
+  }
+
+  function showSaved(message = 'Settings saved') {
+    savedMsg.textContent = message;
     savedMsg.classList.add('saved-msg--visible');
     setTimeout(() => savedMsg.classList.remove('saved-msg--visible'), 2000);
   }
 
+  function collectChecked(selector, key) {
+    const all = Array.from(document.querySelectorAll(selector));
+    const checked = all.filter((cb) => cb.checked).map((cb) => cb.dataset[key]);
+    return checked.length === all.length ? null : checked;
+  }
+
+  function downloadText(text, filename, mimeType) {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function saveProfile(profileId) {
+    detector.applyProfile(profileId);
+    await detector.saveSettings();
+    profileSelect.value = detector.settings.profile;
+    sensitivitySelect.value = detector.settings.sensitivity;
+    syncCategoryCheckboxes();
+    renderProfileSummary(detector.getProfile(profileId));
+    showSaved();
+  }
+
+  async function savePolicySettings() {
+    detector.settings.policyPack = policyPackSelect.value;
+    detector.settings.protectedTerms = protectedTermsInput.value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    await detector.saveSettings();
+    renderProfileSummary(detector.getProfile(detector.settings.profile));
+    showSaved();
+  }
+
+  async function importPolicyPackFile(file) {
+    if (!file) return;
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    await detector.importPolicyPackConfig(payload);
+    syncSettingsToUI();
+    showSaved('Policy Pack imported');
+  }
+
+  profileSelect.addEventListener('change', async () => {
+    const profileId = profileSelect.value;
+    if (profileId === 'custom') {
+      detector.markSettingsCustom();
+      await detector.saveSettings();
+      renderProfileSummary(detector.getProfile('custom'));
+      showSaved();
+      return;
+    }
+    await saveProfile(profileId);
+  });
+
   sensitivitySelect.addEventListener('change', async () => {
     detector.settings.sensitivity = sensitivitySelect.value;
+    detector.markSettingsCustom();
+    profileSelect.value = 'custom';
+    renderProfileSummary(detector.getProfile('custom'));
     await detector.saveSettings();
     showSaved();
   });
 
-  // Language toggles
+  savePolicyPackBtn.addEventListener('click', savePolicySettings);
+  policyPackSelect.addEventListener('change', savePolicySettings);
+
+  exportPolicyPackBtn.addEventListener('click', () => {
+    const payload = detector.exportPolicyPackConfig();
+    downloadText(
+      JSON.stringify(payload, null, 2),
+      `safeprompt-policy-pack-${payload.policyPack}-${new Date().toISOString().slice(0, 10)}.json`,
+      'application/json;charset=utf-8'
+    );
+  });
+
+  importPolicyPackBtn.addEventListener('click', () => {
+    policyPackFile.click();
+  });
+
+  policyPackFile.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await importPolicyPackFile(file);
+    } catch (error) {
+      alert(error?.message || 'Failed to import policy pack JSON.');
+    } finally {
+      policyPackFile.value = '';
+    }
+  });
+
   document.querySelectorAll('[data-lang]').forEach((el) => {
     el.addEventListener('change', async () => {
-      const checked = [];
-      document.querySelectorAll('[data-lang]').forEach((cb) => {
-        if (cb.checked) checked.push(cb.dataset.lang);
-      });
-      detector.settings.enabledLanguages = checked.length > 0 ? new Set(checked) : null;
+      const checked = collectChecked('[data-lang]', 'lang');
+      detector.settings.enabledLanguages = checked ? new Set(checked) : null;
       await detector.saveSettings();
       showSaved();
     });
   });
 
-  // Category toggles
   document.querySelectorAll('[data-cat]').forEach((el) => {
     el.addEventListener('change', async () => {
-      const checked = [];
-      document.querySelectorAll('[data-cat]').forEach((cb) => {
-        if (cb.checked) checked.push(cb.dataset.cat);
-      });
-      detector.settings.enabledCategories = checked.length > 0 ? new Set(checked) : null;
+      const checked = collectChecked('[data-cat]', 'cat');
+      detector.settings.enabledCategories = checked ? new Set(checked) : null;
+      detector.markSettingsCustom();
+      profileSelect.value = 'custom';
+      renderProfileSummary(detector.getProfile('custom'));
       await detector.saveSettings();
       showSaved();
     });
   });
 
-  // Allowlist
+  [
+    [memoryGuardEnabled, 'memoryGuardEnabled'],
+    [clipboardGuardianEnabled, 'clipboardGuardianEnabled'],
+    [falsePositiveTrainerEnabled, 'falsePositiveTrainerEnabled'],
+  ].forEach(([el, key]) => {
+    el.addEventListener('change', async () => {
+      detector.settings[key] = el.checked;
+      await detector.saveSettings();
+      updateGuardButtons();
+      showSaved();
+    });
+  });
+
+  clearMemoryBtn.addEventListener('click', async () => {
+    await detector.clearConversationMemory();
+    updateGuardButtons();
+    showSaved('Memory Guard cache cleared');
+  });
+
+  clearTrainerBtn.addEventListener('click', async () => {
+    await detector.clearFalsePositiveRules();
+    updateGuardButtons();
+    showSaved('Trainer rules cleared');
+  });
+
   saveAllowlistBtn.addEventListener('click', async () => {
-    const lines = allowlistInput.value.split('\n').map((l) => l.trim()).filter(Boolean);
-    detector.settings.allowlist = lines;
+    detector.settings.allowlist = allowlistInput.value.split('\n').map((l) => l.trim()).filter(Boolean);
     await detector.saveSettings();
     showSaved();
   });
 
-  // Disabled Sites
   saveDisabledSitesBtn.addEventListener('click', async () => {
-    const lines = disabledSitesInput.value.split('\n').map((l) => l.trim()).filter(Boolean);
-    detector.settings.disabledSites = lines;
+    detector.settings.disabledSites = disabledSitesInput.value.split('\n').map((l) => l.trim()).filter(Boolean);
     await detector.saveSettings();
     showSaved();
   });
-
-  // ---------------------------------------------------------------------------
-  // Activity Log
-  // ---------------------------------------------------------------------------
 
   async function loadActivityLog() {
     const log = await detector.getActivityLog();
@@ -154,32 +301,31 @@
         <td>${escapeHTML(entry.platform)}</td>
         <td>${entry.count}</td>
         <td>${escapeHTML(entry.severity)}</td>
+        <td>${entry.score || 0}</td>
+        <td>${escapeHTML(entry.profile || 'balanced')}</td>
+        <td>${escapeHTML(entry.policyPack || 'none')}</td>
         <td>${escapeHTML(entry.types.join(', '))}</td>
       </tr>`;
     }).join('');
 
     activityLogDiv.innerHTML = `
       <table class="log-table">
-        <thead><tr><th>Date</th><th>Platform</th><th>Count</th><th>Severity</th><th>Types</th></tr></thead>
+        <thead><tr><th>Date</th><th>Platform</th><th>Count</th><th>Severity</th><th>Score</th><th>Profile</th><th>Policy</th><th>Types</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;
   }
 
-  // Export CSV
   exportCSVBtn.addEventListener('click', async () => {
     const log = await detector.getActivityLog();
     const csv = detector.exportLogCSV(log);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `safeprompt-log-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(
+      csv,
+      `safeprompt-log-${new Date().toISOString().slice(0, 10)}.csv`,
+      'text/csv;charset=utf-8'
+    );
   });
 
-  // Clear log
   clearLogBtn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to clear all activity logs?')) return;
     if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -189,19 +335,11 @@
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
   function escapeHTML(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
-
-  // ---------------------------------------------------------------------------
-  // Start
-  // ---------------------------------------------------------------------------
 
   init();
 })();

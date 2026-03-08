@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SafePrompt - AI Privacy Shield",
   "version": "1.0.0",
-  "description": "Protect your sensitive data before sending to AI chatbots. Detects PII in real-time across 8 languages. 100% local.",
+  "description": "Protect your sensitive data before sending to AI chatbots. Detects PII in real-time across 11 languages. 100% local.",
   "permissions": ["storage", "activeTab", "contextMenus"],
   "icons": {
     "16": "src/icons/icon16.png",

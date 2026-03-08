@@ -35,7 +35,7 @@
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
-      max-width: 680px;
+      max-width: 760px;
       margin: 0 auto;
       padding: 32px 24px;
     }
@@ -51,12 +51,12 @@
       margin-bottom: 32px;
     }
 
-    /* Tabs */
     .tabs {
       display: flex;
       gap: 4px;
       border-bottom: 2px solid var(--border);
       margin-bottom: 24px;
+      overflow-x: auto;
     }
 
     .tab {
@@ -72,6 +72,7 @@
       border-top: none;
       border-left: none;
       border-right: none;
+      white-space: nowrap;
     }
 
     .tab:hover { color: var(--text); }
@@ -80,7 +81,6 @@
     .tab-panel { display: none; }
     .tab-panel--active { display: block; }
 
-    /* Section */
     .section {
       background: var(--bg2);
       border-radius: var(--radius);
@@ -100,7 +100,6 @@
       margin-bottom: 16px;
     }
 
-    /* Form */
     label {
       display: flex;
       align-items: center;
@@ -139,7 +138,6 @@
       resize: vertical;
     }
 
-    /* Buttons */
     .btn {
       padding: 10px 20px;
       border: none;
@@ -155,9 +153,54 @@
     .btn--danger { background: var(--danger); color: white; }
     .btn--secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
 
-    .btn-group { display: flex; gap: 8px; margin-top: 16px; }
+    .btn-group { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 
-    /* Activity log table */
+    .profile-summary {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .profile-summary__name {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .profile-summary__desc {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+
+    .profile-summary__meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+    }
+
+    .saved-msg {
+      display: none;
+      color: var(--safe);
+      font-weight: 600;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .saved-msg--visible { display: block; }
+
     .log-table {
       width: 100%;
       border-collapse: collapse;
@@ -176,6 +219,7 @@
     .log-table td {
       padding: 8px;
       border-bottom: 1px solid var(--border);
+      vertical-align: top;
     }
 
     .log-empty {
@@ -183,23 +227,12 @@
       padding: 32px;
       color: var(--text2);
     }
-
-    .saved-msg {
-      display: none;
-      color: var(--safe);
-      font-weight: 600;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-
-    .saved-msg--visible { display: block; }
   </style>
 </head>
 <body>
   <h1>SafePrompt Settings</h1>
   <p class="subtitle">Configure your AI privacy protection</p>
 
-  <!-- Tabs -->
   <div class="tabs">
     <button class="tab tab--active" data-tab="general">General</button>
     <button class="tab" data-tab="languages">Languages</button>
@@ -208,21 +241,56 @@
     <button class="tab" data-tab="activity">Activity Log</button>
   </div>
 
-  <!-- General -->
   <div class="tab-panel tab-panel--active" id="panel-general">
     <div class="section">
+      <div class="section__title">Protection Profile</div>
+      <div class="section__desc">Profiles change sensitivity and focus areas for specific workflows.</div>
+      <select id="profileSelect">
+        <option value="balanced">Balanced</option>
+        <option value="developer">Developer</option>
+        <option value="medical">Medical</option>
+        <option value="legal">Legal</option>
+        <option value="student">Student</option>
+        <option value="custom">Custom</option>
+      </select>
+      <div class="profile-summary" id="profileSummary"></div>
+    </div>
+    <div class="section">
       <div class="section__title">Sensitivity Level</div>
-      <div class="section__desc">Controls which severity levels are detected. Higher sensitivity catches more but may have more false positives.</div>
+      <div class="section__desc">Higher sensitivity catches more but may increase false positives. Manual edits switch the profile to Custom.</div>
       <select id="sensitivity">
         <option value="low">Low - Only critical items</option>
         <option value="medium" selected>Medium - Critical + High + Medium</option>
         <option value="high">High - Everything including low severity</option>
       </select>
     </div>
+    <div class="section">
+      <div class="section__title">Policy Pack</div>
+      <div class="section__desc">Escalate locally protected names, client terms, or internal references beyond normal PII scanning.</div>
+      <select id="policyPackSelect"></select>
+      <div class="section__desc" style="margin-top:12px;">Protected terms (one per line)</div>
+      <textarea id="protectedTermsInput" placeholder="AcmeClient&#10;Project Falcon&#10;internal-api.company.local"></textarea>
+      <div class="btn-group">
+        <button class="btn btn--primary" id="savePolicyPack">Save Policy Pack</button>
+        <button class="btn btn--secondary" id="exportPolicyPack">Export JSON</button>
+        <button class="btn btn--secondary" id="importPolicyPack">Import JSON</button>
+      </div>
+      <input type="file" id="policyPackFile" accept="application/json,.json" style="display:none;">
+    </div>
+    <div class="section">
+      <div class="section__title">Behavior Guards</div>
+      <div class="section__desc">Keep repeated sensitive values, clipboard leaks, and false positive learning fully local on this device.</div>
+      <label><input type="checkbox" id="memoryGuardEnabled"> Conversation Memory Guard</label>
+      <label><input type="checkbox" id="clipboardGuardianEnabled"> Clipboard Guardian</label>
+      <label><input type="checkbox" id="falsePositiveTrainerEnabled"> False Positive Trainer</label>
+      <div class="btn-group">
+        <button class="btn btn--secondary" id="clearMemoryBtn">Clear Memory Guard Cache</button>
+        <button class="btn btn--secondary" id="clearTrainerBtn">Clear Trainer Rules</button>
+      </div>
+    </div>
     <div class="saved-msg" id="savedMsg">Settings saved</div>
   </div>
 
-  <!-- Languages -->
   <div class="tab-panel" id="panel-languages">
     <div class="section">
       <div class="section__title">Enabled Languages</div>
@@ -235,16 +303,19 @@
         <label><input type="checkbox" data-lang="zh" checked> Chinese (&#20013;&#25991;)</label>
         <label><input type="checkbox" data-lang="de" checked> German (Deutsch)</label>
         <label><input type="checkbox" data-lang="pt" checked> Portuguese (Portugu&#234;s)</label>
+        <label><input type="checkbox" data-lang="tr" checked> Turkish (T&#252;rk&#231;e)</label>
+        <label><input type="checkbox" data-lang="hi" checked> Hindi (&#2361;&#2367;&#2344;&#2381;&#2342;&#2368;)</label>
+        <label><input type="checkbox" data-lang="ko" checked> Korean (&#54620;&#44397;&#50612;)</label>
+        <label><input type="checkbox" data-lang="ja" checked> Japanese (&#26085;&#26412;&#35486;)</label>
         <label><input type="checkbox" data-lang="context" checked> Context-Aware Detection</label>
       </div>
     </div>
   </div>
 
-  <!-- Categories -->
   <div class="tab-panel" id="panel-categories">
     <div class="section">
       <div class="section__title">Detection Categories</div>
-      <div class="section__desc">Enable or disable specific categories of PII detection.</div>
+      <div class="section__desc">Enable or disable specific categories of PII detection. Manual edits switch the profile to Custom.</div>
       <div id="categoryToggles">
         <label><input type="checkbox" data-cat="identity" checked> Identity (SSN, National ID, Passport)</label>
         <label><input type="checkbox" data-cat="financial" checked> Financial (Credit Cards, IBAN, Bank Accounts)</label>
@@ -258,7 +329,6 @@
     </div>
   </div>
 
-  <!-- Allowlist -->
   <div class="tab-panel" id="panel-allowlist">
     <div class="section">
       <div class="section__title">Allowlist</div>
@@ -278,7 +348,6 @@
     </div>
   </div>
 
-  <!-- Activity Log -->
   <div class="tab-panel" id="panel-activity">
     <div class="section">
       <div class="section__title">Activity Log</div>
@@ -297,3 +366,4 @@
   <script src="options.js"></script>
 </body>
 </html>
+

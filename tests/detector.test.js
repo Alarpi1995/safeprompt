@@ -710,11 +710,13 @@ describe('Core - CSV Export', () => {
 
   test('exports valid CSV', () => {
     const log = [
-      { timestamp: 1709750400000, platform: 'ChatGPT', count: 3, severity: 'high', types: ['email', 'ssn'] },
+      { timestamp: 1709750400000, platform: 'ChatGPT', count: 3, severity: 'high', score: 64, profile: 'developer', policyPack: 'internal_ops', types: ['email', 'ssn'] },
     ];
     const csv = d.exportLogCSV(log);
-    expect(csv).toContain('Timestamp,Platform,Count,Severity,Types');
+    expect(csv).toContain('Timestamp,Platform,Count,Severity,Score,Profile,PolicyPack,Types');
     expect(csv).toContain('ChatGPT');
+    expect(csv).toContain('developer');
+    expect(csv).toContain('internal_ops');
     expect(csv).toContain('email, ssn');
   });
 });
@@ -1020,5 +1022,164 @@ describe('Names Dictionary - New Languages', () => {
     const pat = SafePromptNames.buildPattern('ja');
     expect(pat).toBeDefined();
     expect(pat).toContain('Haruto');
+  });
+});
+
+describe('Language filtering', () => {
+  const { SafePromptNames } = require('../src/core/names-dictionary');
+
+  function registerEnglishNames(detector) {
+    detector.registerLanguage('names_en', {
+      code: 'names_en',
+      name: 'English Names',
+      nativeName: 'English Names Dictionary',
+      patterns: {
+        names: [{
+          type: 'name_dict_en',
+          label: 'Personal Name (English)',
+          pattern: SafePromptNames.buildPattern('en'),
+          flags: 'g',
+          severity: 'high',
+        }],
+      },
+    });
+  }
+
+  test('keeps dictionary names active when the base language is enabled', () => {
+    const d = new SafePromptDetector();
+    d.settings.enabledLanguages = new Set(['en']);
+    registerEnglishNames(d);
+
+    const results = d.scan('James shared his draft');
+    const name = results.find((r) => r.type === 'name_dict_en');
+
+    expect(name).toBeDefined();
+    expect(name.value).toBe('James');
+  });
+
+  test('disables dictionary names when the base language is disabled', () => {
+    const d = new SafePromptDetector();
+    d.settings.enabledLanguages = new Set(['ar']);
+    registerEnglishNames(d);
+
+    const results = d.scan('James shared his draft');
+    const name = results.find((r) => r.type === 'name_dict_en');
+
+    expect(name).toBeUndefined();
+  });
+});
+
+describe('Privacy analysis features', () => {
+  test('applies developer profile with higher sensitivity and focused categories', () => {
+    const d = new SafePromptDetector();
+    const profile = d.applyProfile('developer');
+
+    expect(profile.id).toBe('developer');
+    expect(d.settings.profile).toBe('developer');
+    expect(d.settings.sensitivity).toBe('high');
+    expect(d.settings.enabledCategories.has('credentials')).toBe(true);
+    expect(d.settings.enabledCategories.has('network')).toBe(true);
+  });
+
+  test('rewrites sensitive values into readable local placeholders', () => {
+    const d = createDetector();
+    const text = 'Contact me at john.doe@example.com and use password = "superSecret123"';
+    const detections = d.scan(text);
+    const rewritten = d.rewriteSafely(text, detections);
+
+    expect(rewritten.text).toContain('[redacted email address]');
+    expect(rewritten.text).toContain('[redacted password]');
+    expect(rewritten.text).not.toContain('john.doe@example.com');
+  });
+
+  test('computes a high privacy score for mixed critical detections', () => {
+    const d = createDetector();
+    const text = 'My SSN is 123-45-6789 and my AWS key is AKIAIOSFODNN7EXAMPLE';
+    const analysis = d.analyzeText(text);
+
+    expect(analysis.score).toBeGreaterThanOrEqual(55);
+    expect(['high', 'critical']).toContain(analysis.level);
+    expect(['rewrite', 'block']).toContain(analysis.recommendedAction);
+    expect(analysis.reasons.length).toBeGreaterThan(0);
+    expect(analysis.simulator.narrative).toContain('plain text');
+  });
+
+  test('returns zero score for clean text', () => {
+    const d = createDetector();
+    const analysis = d.analyzeText('Summarize this product roadmap without personal data.');
+
+    expect(analysis.score).toBe(0);
+    expect(analysis.level).toBe('safe');
+    expect(analysis.recommendedAction).toBe('allow');
+  });
+});
+
+
+
+describe('Local protection workflows', () => {
+  test('detects protected terms from the active policy pack', () => {
+    const d = createDetector();
+    d.settings.policyPack = 'enterprise_strict';
+    d.settings.protectedTerms = ['AcmeClient'];
+
+    const detections = d.scan('Share the AcmeClient pricing memo with the assistant.');
+    const match = detections.find((entry) => entry.type === 'policy_term');
+
+    expect(match).toBeDefined();
+    expect(match.severity).toBe('critical');
+    expect(match.policyPack).toBe('enterprise_strict');
+  });
+
+  test('re-surfaces repeated sensitive values through conversation memory guard', async () => {
+    const d = createDetector();
+    const text = 'Email me at john.doe@example.com';
+    const detections = d.scan(text);
+
+    await d.rememberDetections('ChatGPT', detections, 'rewrite');
+    const analysis = d.analyzeText(text, { platform: 'ChatGPT' });
+
+    expect(analysis.memoryMatches.length).toBeGreaterThan(0);
+    expect(analysis.reasons.join(' ')).toContain('Conversation Memory Guard');
+  });
+
+  test('suppresses a trained false positive locally', async () => {
+    const d = createDetector();
+    const text = 'Contact me at john.doe@example.com';
+    const initial = d.scan(text);
+
+    await d.trainFalsePositive([initial[0]]);
+    const rescanned = d.scan(text);
+
+    expect(initial.length).toBeGreaterThan(0);
+    expect(rescanned.find((entry) => entry.type === initial[0].type)).toBeUndefined();
+    expect(d.getFalsePositiveRuleCount()).toBe(1);
+  });
+});
+
+describe('Policy pack JSON workflows', () => {
+  test('exports policy pack settings as JSON-ready config', () => {
+    const d = createDetector();
+    d.settings.policyPack = 'internal_ops';
+    d.settings.protectedTerms = ['AcmeClient', 'Project Falcon', 'AcmeClient'];
+
+    const exported = d.exportPolicyPackConfig();
+
+    expect(exported.version).toBe(1);
+    expect(exported.policyPack).toBe('internal_ops');
+    expect(exported.protectedTerms).toEqual(['AcmeClient', 'Project Falcon']);
+    expect(typeof exported.exportedAt).toBe('string');
+  });
+
+  test('imports policy pack settings from JSON payload', async () => {
+    const d = createDetector();
+
+    const result = await d.importPolicyPackConfig({
+      policyPack: 'enterprise_strict',
+      protectedTerms: ['TopSecret', 'AcmeClient'],
+    });
+
+    expect(d.settings.policyPack).toBe('enterprise_strict');
+    expect(d.settings.protectedTerms).toEqual(['TopSecret', 'AcmeClient']);
+    expect(result.policyPack.id).toBe('enterprise_strict');
   });
 });

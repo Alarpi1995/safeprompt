@@ -19,13 +19,10 @@
   let unmaskMap = null;
   let scanDebounceTimer = null;
   let lastScanText = '';
-  let isBlocked = false;
-  let originalText = null; // for Alt+R toggle
+  let originalText = null;
   let isShowingRedacted = false;
-
-  // ---------------------------------------------------------------------------
-  // Initialize
-  // ---------------------------------------------------------------------------
+  let bypassInterceptionUntil = 0;
+  let lastClipboardCapture = null;
 
   async function init() {
     await detector.loadSettings();
@@ -35,7 +32,6 @@
       return;
     }
 
-    // Per-site disable check
     if (detector.isSiteDisabled(window.location.hostname)) {
       updateBadge(0);
       return;
@@ -46,20 +42,14 @@
 
     observeInput();
     interceptSubmit();
-    interceptPaste();
+    interceptClipboard();
     observeResponses();
     registerKeyboardShortcut();
     registerToggleShortcut();
-
     updateBadge(0);
   }
 
-  // ---------------------------------------------------------------------------
-  // Input Monitoring (Real-time scan as user types)
-  // ---------------------------------------------------------------------------
-
   function observeInput() {
-    // Watch for the input element to appear (SPAs load dynamically)
     const observer = new MutationObserver(() => {
       const input = platforms.getInputElement(currentPlatform);
       if (input && !input._spBound) {
@@ -70,7 +60,6 @@
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Also try binding immediately
     const input = platforms.getInputElement(currentPlatform);
     if (input) {
       input._spBound = true;
@@ -87,7 +76,6 @@
     input.addEventListener('input', handler);
     input.addEventListener('keyup', handler);
 
-    // For contenteditable elements
     if (input.getAttribute('contenteditable') === 'true') {
       input.addEventListener('DOMSubtreeModified', handler);
     }
@@ -95,55 +83,56 @@
 
   function scanInput() {
     const text = platforms.getInputText(currentPlatform);
-    if (!text || text === lastScanText) return;
+    if (!text) {
+      banner.hideIndicator();
+      updateBadge(0);
+      lastScanText = '';
+      return;
+    }
+    if (text === lastScanText) return;
     lastScanText = text;
 
     const detections = detector.scan(text);
     const inputEl = platforms.getInputElement(currentPlatform);
+    const analysis = detector.analyzeDetections(text, detections, { platform: currentPlatform.name });
 
     if (detections.length > 0) {
-      const severity = detector.highestSeverity(detections);
-      banner.showIndicator(severity, inputEl);
+      banner.showIndicator(analysis.level, inputEl, analysis.score);
       updateBadge(detections.length);
     } else {
-      banner.showIndicator('safe', inputEl);
+      banner.showIndicator('safe', inputEl, 0);
       updateBadge(0);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Submit Interception
-  // ---------------------------------------------------------------------------
-
   function interceptSubmit() {
-    // Intercept keyboard submit (Enter key)
     document.addEventListener('keydown', handleKeydown, true);
-
-    // Intercept click on send button
     document.addEventListener('click', handleClick, true);
+    document.addEventListener('submit', handleSubmit, true);
   }
 
   function handleKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const text = platforms.getInputText(currentPlatform);
-      if (!text) return;
+    if (!currentPlatform || shouldBypassInterception()) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key !== 'Enter' || e.shiftKey) return;
 
-      const detections = detector.scan(text);
-      if (detections.length > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        isBlocked = true;
-        showWarning(detections, text);
-      }
+    const text = platforms.getInputText(currentPlatform);
+    if (!text) return;
+
+    const detections = detector.scan(text);
+    if (detections.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showWarning(detections, text, { platform: currentPlatform.name });
     }
   }
 
   function handleClick(e) {
+    if (!currentPlatform || shouldBypassInterception()) return;
     const submitBtn = platforms.getSubmitButton(currentPlatform);
     if (!submitBtn) return;
 
-    // Check if click target is the submit button or inside it
     if (submitBtn.contains(e.target) || e.target === submitBtn) {
       const text = platforms.getInputText(currentPlatform);
       if (!text) return;
@@ -153,46 +142,85 @@
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        isBlocked = true;
-        showWarning(detections, text);
+        showWarning(detections, text, { platform: currentPlatform.name });
       }
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Clipboard Paste Monitoring
-  // ---------------------------------------------------------------------------
+  function handleSubmit(e) {
+    if (!currentPlatform || shouldBypassInterception()) return;
+    const submitContainer = platforms.getSubmitContainer(currentPlatform);
+    if (!submitContainer) return;
+    if (e.target !== submitContainer && !submitContainer.contains(e.target)) return;
 
-  function interceptPaste() {
-    document.addEventListener('paste', (e) => {
-      if (detector.settings.isPaused) return;
+    const text = platforms.getInputText(currentPlatform);
+    if (!text) return;
 
-      const pastedText = e.clipboardData?.getData('text/plain');
-      if (!pastedText || pastedText.length < 3) return;
-
-      const detections = detector.scan(pastedText);
-      if (detections.length > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Show warning with the pasted content
-        const severity = detector.highestSeverity(detections);
-        banner.showIndicator(severity, platforms.getInputElement(currentPlatform));
-        showWarning(detections, platforms.getInputText(currentPlatform) + pastedText);
-      }
-    }, true);
+    const detections = detector.scan(text);
+    if (detections.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showWarning(detections, text, { platform: currentPlatform.name });
+    }
   }
 
-  // ---------------------------------------------------------------------------
-  // Keyboard Shortcut (Ctrl+Shift+S = Quick Scan)
-  // ---------------------------------------------------------------------------
+  function shouldBypassInterception() {
+    return Date.now() < bypassInterceptionUntil;
+  }
+
+  function interceptClipboard() {
+    document.addEventListener('copy', captureClipboard, true);
+    document.addEventListener('cut', captureClipboard, true);
+    document.addEventListener('paste', handlePaste, true);
+  }
+
+  function captureClipboard() {
+    if (!detector.settings.clipboardGuardianEnabled) return;
+    const selected = window.getSelection()?.toString() || '';
+    if (!selected || selected.length < 3) return;
+
+    const detections = detector.scan(selected);
+    if (detections.length === 0) return;
+
+    lastClipboardCapture = {
+      timestamp: Date.now(),
+      fingerprints: detections.map((det) => detector._fingerprintValue(det.value, det.type)),
+      preview: selected.slice(0, 120),
+    };
+  }
+
+  function handlePaste(e) {
+    if (detector.settings.isPaused || !detector.settings.clipboardGuardianEnabled) return;
+
+    const pastedText = e.clipboardData?.getData('text/plain');
+    if (!pastedText || pastedText.length < 3) return;
+
+    const detections = detector.scan(pastedText);
+    if (detections.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const combinedText = platforms.getInputText(currentPlatform) + pastedText;
+      const clipboardMatch = hasClipboardMatch(detections);
+      const analysis = detector.analyzeDetections(combinedText, detector.scan(combinedText), {
+        platform: currentPlatform?.name,
+        clipboard: clipboardMatch || true,
+      });
+      banner.showIndicator(analysis.level, platforms.getInputElement(currentPlatform), analysis.score);
+      showWarning(detections, combinedText, { platform: currentPlatform?.name, clipboard: true });
+    }
+  }
+
+  function hasClipboardMatch(detections) {
+    if (!lastClipboardCapture || (Date.now() - lastClipboardCapture.timestamp) > 5 * 60 * 1000) return false;
+    return detections.some((det) => lastClipboardCapture.fingerprints.includes(detector._fingerprintValue(det.value, det.type)));
+  }
 
   function registerKeyboardShortcut() {
     document.addEventListener('keydown', (e) => {
-      // Ctrl+Shift+S or Cmd+Shift+S
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
         e.preventDefault();
-
         if (detector.settings.isPaused) return;
 
         const text = platforms.getInputText(currentPlatform);
@@ -200,17 +228,13 @@
 
         const detections = detector.scan(text);
         if (detections.length > 0) {
-          showWarning(detections, text);
+          showWarning(detections, text, { platform: currentPlatform.name });
         } else {
-          banner.showIndicator('safe', platforms.getInputElement(currentPlatform));
+          banner.showIndicator('safe', platforms.getInputElement(currentPlatform), 0);
         }
       }
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Alt+R Toggle (switch between original/redacted text in input)
-  // ---------------------------------------------------------------------------
 
   function registerToggleShortcut() {
     document.addEventListener('keydown', (e) => {
@@ -222,7 +246,6 @@
         if (!currentText) return;
 
         if (!isShowingRedacted) {
-          // Switch to redacted view
           const detections = detector.scan(currentText);
           if (detections.length === 0) return;
 
@@ -231,86 +254,93 @@
           unmaskMap = result.map;
           platforms.setInputText(currentPlatform, result.text);
           isShowingRedacted = true;
-          banner.showIndicator('safe', platforms.getInputElement(currentPlatform));
+          banner.showIndicator('safe', platforms.getInputElement(currentPlatform), 0);
         } else if (originalText) {
-          // Restore original text
           platforms.setInputText(currentPlatform, originalText);
           originalText = null;
           isShowingRedacted = false;
-          // Re-scan to show indicator
           const detections = detector.scan(platforms.getInputText(currentPlatform));
           if (detections.length > 0) {
-            banner.showIndicator(detector.highestSeverity(detections), platforms.getInputElement(currentPlatform));
+            const analysis = detector.analyzeDetections(platforms.getInputText(currentPlatform), detections, { platform: currentPlatform.name });
+            banner.showIndicator(analysis.level, platforms.getInputElement(currentPlatform), analysis.score);
           }
         }
       }
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Warning & Actions
-  // ---------------------------------------------------------------------------
-
-  function showWarning(detections, originalText) {
+  function showWarning(detections, textToProcess, context = {}) {
     banner.show(detections, currentPlatform, (action, dets) => {
       switch (action) {
         case 'block':
-          handleBlock();
+          handleBlock(textToProcess, dets, context);
+          break;
+        case 'rewrite':
+          handleRewrite(textToProcess, dets, context);
           break;
         case 'redact':
-          handleRedact(originalText, dets);
+          handleRedact(textToProcess, dets, context);
           break;
         case 'edit':
           handleEdit();
           break;
+        case 'false-positive':
+          handleFalsePositive(dets);
+          break;
       }
-    });
+    }, { ...context, text: textToProcess });
   }
 
-  function handleBlock() {
-    // Keep text as-is, just block submission
-    isBlocked = false;
-    const text = platforms.getInputText(currentPlatform);
-    detector.logActivity(currentPlatform.name, detector.scan(text));
+  function handleBlock(textToProcess, detections, context = {}) {
+    detector.rememberDetections(currentPlatform.name, detections, 'blocked').catch(() => {});
+    detector.logActivity(currentPlatform.name, detections, context);
   }
 
-  function handleRedact(originalText, detections) {
-    const result = detector.redact(originalText, detections);
+  function handleRewrite(textToProcess, detections, context = {}) {
+    const rewritten = detector.rewriteSafely(textToProcess, detections);
+    unmaskMap = null;
+    platforms.setInputText(currentPlatform, rewritten.text);
+    detector.rememberDetections(currentPlatform.name, detections, 'rewrite').catch(() => {});
+    detector.logActivity(currentPlatform.name, detections, context);
+    submitCurrentInput();
+  }
+
+  function handleRedact(textToProcess, detections, context = {}) {
+    const result = detector.redact(textToProcess, detections);
     unmaskMap = result.map;
-
-    // Replace input text with redacted version
     platforms.setInputText(currentPlatform, result.text);
+    detector.rememberDetections(currentPlatform.name, detections, 'redact').catch(() => {});
+    detector.logActivity(currentPlatform.name, detections, context);
+    submitCurrentInput();
+  }
 
-    // Log the activity
-    detector.logActivity(currentPlatform.name, detections);
+  function handleFalsePositive(detections) {
+    detector.trainFalsePositive(detections).catch(() => {});
+    banner.hideIndicator();
+    updateBadge(0);
+  }
 
-    isBlocked = false;
-
-    // Auto-submit after a short delay to let frameworks process the text change
+  function submitCurrentInput() {
     setTimeout(() => {
       const submitBtn = platforms.getSubmitButton(currentPlatform);
+      const submitContainer = platforms.getSubmitContainer(currentPlatform);
+      bypassInterceptionUntil = Date.now() + 1000;
+
       if (submitBtn) {
-        // Temporarily remove our interceptor
-        document.removeEventListener('click', handleClick, true);
         submitBtn.click();
-        // Re-add interceptor
-        setTimeout(() => {
-          document.addEventListener('click', handleClick, true);
-        }, 500);
+        return;
+      }
+
+      if (submitContainer && typeof submitContainer.requestSubmit === 'function') {
+        submitContainer.requestSubmit();
       }
     }, 200);
   }
 
   function handleEdit() {
-    // Focus the input so user can edit
-    isBlocked = false;
     const input = platforms.getInputElement(currentPlatform);
     if (input) input.focus();
   }
-
-  // ---------------------------------------------------------------------------
-  // Smart Unmasking (restore PII in AI responses)
-  // ---------------------------------------------------------------------------
 
   function observeResponses() {
     const observer = new MutationObserver(() => {
@@ -327,17 +357,11 @@
             break;
           }
         }
-        if (hasTokens) {
-          addUnmaskButton(el);
-        }
+        if (hasTokens) addUnmaskButton(el);
       }
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
   function addUnmaskButton(el) {
@@ -351,20 +375,16 @@
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!el._spUnmasked) {
-        // Save original masked content before unmasking
         el._spMaskedHTML = el.innerHTML;
         unmaskElement(el);
         btn.textContent = 'Mask Data';
-        btn.style.opacity = '1';
       } else {
-        // Restore masked content
         el.innerHTML = el._spMaskedHTML;
         el._spUnmasked = false;
         btn.textContent = 'Unmask Data';
       }
     });
 
-    // Insert the button before the response element or as first child
     if (el.parentNode) {
       const wrapper = document.createElement('div');
       wrapper.className = 'sp-unmask-wrapper';
@@ -393,30 +413,105 @@
     el._spUnmasked = true;
   }
 
-  // ---------------------------------------------------------------------------
-  // Badge
-  // ---------------------------------------------------------------------------
+  function collectConversationExportTurns() {
+    const turns = platforms.getConversationTurns(currentPlatform);
+    const draft = platforms.getInputText(currentPlatform).trim();
+
+    if (draft && !turns.some((turn) => turn.role === 'user' && turn.text === draft)) {
+      turns.push({ role: 'user', text: draft, index: turns.length, source: 'draft' });
+    }
+
+    return turns
+      .map((turn, index) => {
+        const detections = detector.scan(turn.text);
+        const rewritten = detector.rewriteSafely(turn.text, detections).text;
+        return {
+          role: turn.role || 'assistant',
+          source: turn.source || 'conversation',
+          order: index + 1,
+          text: rewritten,
+          originalLength: turn.text.length,
+          detectionCount: detections.length,
+        };
+      })
+      .filter((turn) => turn.text);
+  }
+
+  function formatConversationExport(messages, format, metadata) {
+    if (format === 'markdown') {
+      const sections = messages.map((message) => `## ${message.role === 'user' ? 'User' : 'Assistant'} ${message.order}\n\n${message.text}`);
+      return {
+        content: [
+          '# SafePrompt Export',
+          '',
+          `- Platform: ${metadata.platform}`,
+          `- Exported: ${metadata.exportedAt}`,
+          `- Messages: ${messages.length}`,
+          '',
+          ...sections,
+        ].join('\n'),
+        extension: 'md',
+        mimeType: 'text/markdown;charset=utf-8',
+      };
+    }
+
+    if (format === 'json') {
+      return {
+        content: JSON.stringify({
+          ...metadata,
+          messages,
+        }, null, 2),
+        extension: 'json',
+        mimeType: 'application/json;charset=utf-8',
+      };
+    }
+
+    const lines = messages.map((message) => `${message.role.toUpperCase()} ${message.order}:\n${message.text}`);
+    return {
+      content: lines.join('\n\n'),
+      extension: 'txt',
+      mimeType: 'text/plain;charset=utf-8',
+    };
+  }
+
+  function buildSafeConversationExport(format = 'txt') {
+    const normalizedFormat = format === 'md' ? 'markdown' : format;
+    const messages = collectConversationExportTurns();
+    const exportedAt = new Date().toISOString();
+    const metadata = {
+      platform: currentPlatform?.name || 'Unknown',
+      platformId: currentPlatform?.id || 'chat',
+      exportedAt,
+      messageCount: messages.length,
+    };
+
+    const transcript = messages.map((message) => message.text).join('\n\n');
+    const analysis = detector.analyzeText(transcript, { platform: currentPlatform?.name });
+    const formatted = formatConversationExport(messages, normalizedFormat, metadata);
+
+    return {
+      text: formatted.content,
+      content: formatted.content,
+      analysis,
+      format: normalizedFormat,
+      mimeType: formatted.mimeType,
+      messages,
+      filename: `safeprompt-export-${metadata.platformId}-${new Date().toISOString().slice(0, 10)}.${formatted.extension}`,
+    };
+  }
 
   function updateBadge(count) {
     if (typeof chrome !== 'undefined' && chrome.runtime) {
-      chrome.runtime.sendMessage({
-        type: 'updateBadge',
-        count: count,
-      }).catch(() => { /* background may not be ready */ });
+      chrome.runtime.sendMessage({ type: 'updateBadge', count }).catch(() => {});
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Context Menu & Message Handling
-  // ---------------------------------------------------------------------------
-
   if (typeof chrome !== 'undefined' && chrome.runtime) {
-    chrome.runtime.onMessage.addListener((msg) => {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg.type === 'contextMask' && msg.text) {
         const detections = detector.scan(msg.text);
         if (detections.length > 0) {
           const result = detector.redact(msg.text, detections);
-          // Replace selection with redacted text
           const sel = window.getSelection();
           if (sel && sel.rangeCount > 0) {
             const range = sel.getRangeAt(0);
@@ -424,24 +519,28 @@
             range.insertNode(document.createTextNode(result.text));
             unmaskMap = result.map;
           }
-          detector.logActivity(currentPlatform?.name || 'unknown', detections);
+          detector.rememberDetections(currentPlatform?.name || 'unknown', detections, 'context-mask').catch(() => {});
+          detector.logActivity(currentPlatform?.name || 'unknown', detections, { platform: currentPlatform?.name || 'unknown' });
           updateBadge(detections.length);
         }
       }
+
       if (msg.type === 'contextScan' && msg.text) {
         const detections = detector.scan(msg.text);
         if (detections.length > 0) {
-          showWarning(detections, msg.text);
+          showWarning(detections, msg.text, { platform: currentPlatform?.name });
         } else {
-          banner.showIndicator('safe', platforms.getInputElement(currentPlatform));
+          banner.showIndicator('safe', platforms.getInputElement(currentPlatform), 0);
         }
       }
+
+      if (msg.type === 'safeExportConversation') {
+        sendResponse(buildSafeConversationExport(msg.format || 'txt'));
+      }
+
+      return true;
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Listen for settings changes
-  // ---------------------------------------------------------------------------
 
   if (typeof chrome !== 'undefined' && chrome.storage) {
     chrome.storage.onChanged.addListener((changes) => {
@@ -453,6 +552,8 @@
           updateBadge(0);
         }
       }
+      if (changes.profile) detector.settings.profile = changes.profile.newValue || 'balanced';
+      if (changes.policyPack) detector.settings.policyPack = changes.policyPack.newValue || 'none';
       if (changes.sensitivity) detector.settings.sensitivity = changes.sensitivity.newValue;
       if (changes.enabledCategories) {
         detector.settings.enabledCategories = changes.enabledCategories.newValue
@@ -463,13 +564,14 @@
           ? new Set(changes.enabledLanguages.newValue) : null;
       }
       if (changes.allowlist) detector.settings.allowlist = changes.allowlist.newValue || [];
+      if (changes.protectedTerms) detector.settings.protectedTerms = changes.protectedTerms.newValue || [];
       if (changes.disabledSites) detector.settings.disabledSites = changes.disabledSites.newValue || [];
+      if (changes.memoryGuardEnabled) detector.settings.memoryGuardEnabled = changes.memoryGuardEnabled.newValue;
+      if (changes.clipboardGuardianEnabled) detector.settings.clipboardGuardianEnabled = changes.clipboardGuardianEnabled.newValue;
+      if (changes.falsePositiveTrainerEnabled) detector.settings.falsePositiveTrainerEnabled = changes.falsePositiveTrainerEnabled.newValue;
+      if (changes.falsePositiveRules) detector.settings.falsePositiveRules = changes.falsePositiveRules.newValue || {};
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Start
-  // ---------------------------------------------------------------------------
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -477,3 +579,4 @@
     init();
   }
 })();
+
