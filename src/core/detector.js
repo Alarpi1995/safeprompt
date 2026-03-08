@@ -25,6 +25,8 @@ class SafePromptDetector {
       falsePositiveTrainerEnabled: true,
       falsePositiveRules: {},
       responseGuardEnabled: true,
+      fileGuardEnabled: true,
+      reversibleAnonymization: true,
     };
     this._maskMap = new Map();
     this._maskCounter = 0;
@@ -214,7 +216,7 @@ class SafePromptDetector {
       }
 
       chrome.storage.sync.get(
-        ['profile', 'policyPack', 'sensitivity', 'enabledCategories', 'enabledLanguages', 'allowlist', 'protectedTerms', 'isPaused', 'disabledSites', 'memoryGuardEnabled', 'clipboardGuardianEnabled', 'falsePositiveTrainerEnabled', 'falsePositiveRules', 'responseGuardEnabled'],
+        ['profile', 'policyPack', 'sensitivity', 'enabledCategories', 'enabledLanguages', 'allowlist', 'protectedTerms', 'isPaused', 'disabledSites', 'memoryGuardEnabled', 'clipboardGuardianEnabled', 'falsePositiveTrainerEnabled', 'falsePositiveRules', 'responseGuardEnabled', 'fileGuardEnabled', 'reversibleAnonymization'],
         (data) => {
           if (data.profile) this.settings.profile = data.profile;
           if (data.policyPack) this.settings.policyPack = data.policyPack;
@@ -230,6 +232,8 @@ class SafePromptDetector {
           if (data.falsePositiveTrainerEnabled !== undefined) this.settings.falsePositiveTrainerEnabled = data.falsePositiveTrainerEnabled;
           if (data.falsePositiveRules) this.settings.falsePositiveRules = data.falsePositiveRules;
           if (data.responseGuardEnabled !== undefined) this.settings.responseGuardEnabled = data.responseGuardEnabled;
+          if (data.fileGuardEnabled !== undefined) this.settings.fileGuardEnabled = data.fileGuardEnabled;
+          if (data.reversibleAnonymization !== undefined) this.settings.reversibleAnonymization = data.reversibleAnonymization;
 
           chrome.storage.local.get(['conversationMemory'], (localData) => {
             this._conversationMemory = Array.isArray(localData.conversationMemory) ? localData.conversationMemory : [];
@@ -260,6 +264,8 @@ class SafePromptDetector {
           falsePositiveTrainerEnabled: this.settings.falsePositiveTrainerEnabled,
           falsePositiveRules: this.settings.falsePositiveRules,
           responseGuardEnabled: this.settings.responseGuardEnabled,
+          fileGuardEnabled: this.settings.fileGuardEnabled,
+          reversibleAnonymization: this.settings.reversibleAnonymization,
         };
         chrome.storage.sync.set(data, resolve);
       } else {

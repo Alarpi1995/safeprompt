@@ -30,7 +30,13 @@
   const exportFormat = document.getElementById('exportFormat');
   const safeExportBtn = document.getElementById('safeExportBtn');
   const dropHint = document.getElementById('dropHint');
-  const allowedTypes = ['text/plain', 'text/csv', 'application/json', 'text/html'];
+  const allowedTypes = [
+    'text/plain', 'text/csv', 'application/json', 'text/html', 'text/xml',
+    'text/markdown', 'application/xml', 'application/yaml',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/pdf',
+  ];
+  const allowedExtensions = /\.(txt|csv|json|log|md|xml|yaml|yml|docx|pdf)$/i;
 
   async function init() {
     await detector.loadSettings();
@@ -155,7 +161,7 @@
     scanInput.style.borderColor = '';
   });
 
-  scanInput.addEventListener('drop', (e) => {
+  scanInput.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropHint.style.display = 'none';
     scanInput.style.borderColor = '';
@@ -163,22 +169,43 @@
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
 
-    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(txt|csv|json|log|md)$/i)) {
-      scanInput.value = 'Unsupported file type. Use .txt, .csv, .json, .log, or .md files.';
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+      scanInput.value = `Unsupported file type. Supported: ${allowedExtensions.source.replace(/[\\|$()/^]/g, '').replace(/\./g, ' .')}`;
       return;
     }
 
-    if (file.size > 1024 * 1024) {
-      scanInput.value = 'File too large (max 1MB).';
+    if (file.size > 10 * 1024 * 1024) {
+      scanInput.value = 'File too large (max 10MB).';
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      scanInput.value = reader.result;
-      scanBtn.click();
-    };
-    reader.readAsText(file);
+    scanInput.value = `Scanning ${file.name}...`;
+
+    try {
+      // Use FileScanner for DOCX/PDF, FileReader for text files
+      const isDocx = /\.docx$/i.test(file.name) || file.type.includes('wordprocessingml');
+      const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+
+      if (isDocx || isPdf) {
+        // Use the file scanner module if available
+        if (typeof SafePromptFileScanner !== 'undefined' && SafePromptFileScanner.canScan(file)) {
+          const text = await SafePromptFileScanner.extractText(file);
+          scanInput.value = text || 'Could not extract text from file.';
+          scanBtn.click();
+        } else {
+          scanInput.value = `${file.name}: File scanner not available for this format.`;
+        }
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          scanInput.value = reader.result;
+          scanBtn.click();
+        };
+        reader.readAsText(file);
+      }
+    } catch (err) {
+      scanInput.value = `Error scanning ${file.name}: ${err.message}`;
+    }
   });
 
   settingsBtn.addEventListener('click', () => {

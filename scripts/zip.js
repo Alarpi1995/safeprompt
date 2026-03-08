@@ -2,46 +2,57 @@
 
 /**
  * SafePrompt Zip Script
- * Creates a .zip file from dist/ for Chrome Web Store upload.
- * Runs build first if dist/ doesn't exist.
+ * Creates .zip files for each browser build.
+ * Usage:
+ *   node scripts/zip.js          # Zip all browsers
+ *   node scripts/zip.js chrome   # Chrome only
+ *   node scripts/zip.js firefox  # Firefox only
  */
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { createWriteStream } = require('fs');
 
 const ROOT = path.resolve(__dirname, '..');
-const DIST = path.join(ROOT, 'dist');
+const DIST_BASE = path.join(ROOT, 'dist');
 
-// Read version from manifest
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
 const version = manifest.version;
-const zipName = `safeprompt-v${version}.zip`;
-const zipPath = path.join(ROOT, zipName);
 
-// Run build if dist/ doesn't exist
-if (!fs.existsSync(DIST)) {
-  console.log('dist/ not found, running build first...\n');
-  execSync('node scripts/build.js', { cwd: ROOT, stdio: 'inherit' });
+function zipBrowser(browserKey) {
+  const dist = path.join(DIST_BASE, browserKey);
+
+  if (!fs.existsSync(dist)) {
+    console.log(`dist/${browserKey}/ not found, running build first...`);
+    execSync(`node scripts/build.js ${browserKey}`, { cwd: ROOT, stdio: 'inherit' });
+  }
+
+  const zipName = `safeprompt-v${version}-${browserKey}.zip`;
+  const zipPath = path.join(ROOT, zipName);
+
+  if (fs.existsSync(zipPath)) {
+    fs.unlinkSync(zipPath);
+  }
+
+  try {
+    execSync(`cd "${dist}" && zip -r "${zipPath}" .`, { stdio: 'inherit' });
+    const stats = fs.statSync(zipPath);
+    const sizeKB = (stats.size / 1024).toFixed(1);
+    console.log(`Created: ${zipName} (${sizeKB} KB)`);
+  } catch (e) {
+    execSync(`cd "${dist}" && tar -czf "${zipPath.replace('.zip', '.tar.gz')}" .`, { stdio: 'inherit' });
+    console.log(`Created: ${zipName.replace('.zip', '.tar.gz')}`);
+  }
 }
 
-// Remove old zip if exists
-if (fs.existsSync(zipPath)) {
-  fs.unlinkSync(zipPath);
-}
+const target = process.argv[2]?.toLowerCase();
 
-// Create zip using system zip command
-try {
-  execSync(`cd "${DIST}" && zip -r "${zipPath}" .`, { stdio: 'inherit' });
-  const stats = fs.statSync(zipPath);
-  const sizeKB = (stats.size / 1024).toFixed(1);
-  console.log(`\nCreated: ${zipName} (${sizeKB} KB)`);
-  console.log('Ready for Chrome Web Store upload!');
-} catch (e) {
-  // Fallback: if zip command not available, use tar
-  console.log('zip command not found, trying tar...');
-  execSync(`cd "${DIST}" && tar -czf "${zipPath.replace('.zip', '.tar.gz')}" .`, { stdio: 'inherit' });
-  console.log(`Created: ${zipName.replace('.zip', '.tar.gz')}`);
-  console.log('Note: Chrome Web Store requires .zip format. Please convert or install zip.');
+if (target === 'chrome' || target === 'firefox') {
+  zipBrowser(target);
+} else {
+  console.log('Creating packages for all browsers...\n');
+  zipBrowser('chrome');
+  zipBrowser('firefox');
+  console.log('\nEdge: Use the Chrome package for Microsoft Edge Add-ons.');
+  console.log('All packages ready for store submission!');
 }

@@ -2,12 +2,14 @@
  * SafePrompt - Form Interceptor
  * Monitors user input on AI chatbot pages, scans for PII,
  * and intercepts form submission when sensitive data is detected.
+ * Includes reversible anonymization and file upload scanning.
  */
 
 (function () {
   const detector = window.safeprompt;
   const platforms = window.SafePromptPlatforms;
   const BannerClass = window.SafePromptBanner;
+  const fileScanner = window.SafePromptFileScanner;
 
   if (!detector || !platforms || !BannerClass) {
     console.warn('[SafePrompt] Missing dependencies. Extension may not work properly.');
@@ -24,6 +26,54 @@
   let bypassInterceptionUntil = 0;
   let lastClipboardCapture = null;
   let responseGuardTimers = new WeakMap();
+
+  // ---------------------------------------------------------------------------
+  // Reversible Anonymization Session
+  // ---------------------------------------------------------------------------
+  // Stores all token→original mappings across the conversation session
+  const anonymizationSession = {
+    _maps: [],      // Array of Map objects, one per redacted message
+    _combinedMap: new Map(),
+
+    addMapping(map) {
+      if (!map || map.size === 0) return;
+      this._maps.push(new Map(map));
+      for (const [token, original] of map) {
+        this._combinedMap.set(token, original);
+      }
+    },
+
+    getCombinedMap() {
+      return this._combinedMap;
+    },
+
+    hasTokens() {
+      return this._combinedMap.size > 0;
+    },
+
+    findTokensInText(text) {
+      const found = [];
+      for (const [token, original] of this._combinedMap) {
+        if (text.includes(token)) {
+          found.push({ token, original });
+        }
+      }
+      return found;
+    },
+
+    deAnonymize(text) {
+      let result = text;
+      for (const [token, original] of this._combinedMap) {
+        result = result.replaceAll(token, original);
+      }
+      return result;
+    },
+
+    clear() {
+      this._maps = [];
+      this._combinedMap.clear();
+    },
+  };
 
   async function init() {
     await detector.loadSettings();
@@ -44,6 +94,7 @@
     observeInput();
     interceptSubmit();
     interceptClipboard();
+    interceptFileUploads();
     observeResponses();
     registerKeyboardShortcut();
     registerToggleShortcut();
@@ -218,6 +269,108 @@
     return detections.some((det) => lastClipboardCapture.fingerprints.includes(detector._fingerprintValue(det.value, det.type)));
   }
 
+  // ---------------------------------------------------------------------------
+  // File Upload Interception
+  // ---------------------------------------------------------------------------
+
+  function interceptFileUploads() {
+    if (!fileScanner || !detector.settings.fileGuardEnabled) return;
+
+    // Watch for file input elements being added to the page
+    const fileObserver = new MutationObserver(() => {
+      const fileInputs = document.querySelectorAll('input[type="file"]:not([data-sp-bound])');
+      for (const input of fileInputs) {
+        input.setAttribute('data-sp-bound', 'true');
+        input.addEventListener('change', handleFileSelect, true);
+      }
+    });
+
+    fileObserver.observe(document.body, { childList: true, subtree: true });
+
+    // Bind existing file inputs
+    document.querySelectorAll('input[type="file"]').forEach((input) => {
+      if (!input.getAttribute('data-sp-bound')) {
+        input.setAttribute('data-sp-bound', 'true');
+        input.addEventListener('change', handleFileSelect, true);
+      }
+    });
+
+    // Intercept drag-and-drop file uploads
+    document.addEventListener('drop', handleFileDrop, true);
+  }
+
+  async function handleFileSelect(e) {
+    if (detector.settings.isPaused || !detector.settings.fileGuardEnabled) return;
+    const files = e.target?.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      await scanFileBeforeUpload(file, e);
+    }
+  }
+
+  async function handleFileDrop(e) {
+    if (detector.settings.isPaused || !detector.settings.fileGuardEnabled) return;
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      const result = await scanFileBeforeUpload(file, e);
+      if (result && result.blocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
+    }
+  }
+
+  async function scanFileBeforeUpload(file, event) {
+    if (!fileScanner || !fileScanner.canScan(file)) return { blocked: false };
+
+    try {
+      const text = await fileScanner.extractText(file);
+      if (!text || text.length < 3) return { blocked: false };
+
+      const detections = detector.scan(text);
+      if (detections.length === 0) return { blocked: false };
+
+      // Show file-specific warning
+      showFileWarning(file, detections, text);
+      return { blocked: true };
+    } catch (err) {
+      console.warn('[SafePrompt] File scan error:', err.message);
+      return { blocked: false };
+    }
+  }
+
+  function showFileWarning(file, detections, extractedText) {
+    const fileInfo = `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    banner.show(detections, currentPlatform, (action, dets) => {
+      switch (action) {
+        case 'block':
+          detector.rememberDetections(currentPlatform?.name || 'unknown', dets, 'file-blocked').catch(() => {});
+          detector.logActivity(currentPlatform?.name || 'unknown', dets, {
+            platform: currentPlatform?.name,
+            source: 'file',
+            fileName: file.name,
+          });
+          break;
+        case 'rewrite':
+        case 'redact':
+          // For files, we can only block or allow - can't rewrite the file
+          detector.logActivity(currentPlatform?.name || 'unknown', dets, {
+            platform: currentPlatform?.name,
+            source: 'file',
+            fileName: file.name,
+          });
+          break;
+        case 'false-positive':
+          handleFalsePositive(dets);
+          break;
+      }
+    }, { text: extractedText, fileInfo, platform: currentPlatform?.name, source: 'file' });
+  }
+
   function registerKeyboardShortcut() {
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
@@ -253,6 +406,7 @@
           originalText = currentText;
           const result = detector.redact(currentText, detections);
           unmaskMap = result.map;
+          anonymizationSession.addMapping(result.map);
           platforms.setInputText(currentPlatform, result.text);
           isShowingRedacted = true;
           banner.showIndicator('safe', platforms.getInputElement(currentPlatform), 0);
@@ -309,6 +463,8 @@
   function handleRedact(textToProcess, detections, context = {}) {
     const result = detector.redact(textToProcess, detections);
     unmaskMap = result.map;
+    // Store in the session for automatic de-anonymization in responses
+    anonymizationSession.addMapping(result.map);
     platforms.setInputText(currentPlatform, result.text);
     detector.rememberDetections(currentPlatform.name, detections, 'redact').catch(() => {});
     detector.logActivity(currentPlatform.name, detections, context);
@@ -345,19 +501,34 @@
 
   function observeResponses() {
     const observer = new MutationObserver(() => {
-      // --- Existing unmask token flow ---
-      if (unmaskMap && unmaskMap.size > 0) {
+      // --- Reversible anonymization: detect tokens in AI responses ---
+      const sessionMap = anonymizationSession.getCombinedMap();
+      const hasSessionTokens = anonymizationSession.hasTokens();
+      const hasLegacyTokens = unmaskMap && unmaskMap.size > 0;
+
+      if (hasSessionTokens || hasLegacyTokens) {
         const responses = platforms.getResponseElements(currentPlatform);
         for (const el of responses) {
           if (el._spUnmasked) continue;
           const text = el.textContent || '';
+
+          // Check session-level tokens (persistent across conversation)
           let hasTokens = false;
-          for (const [token] of unmaskMap) {
-            if (text.includes(token)) {
-              hasTokens = true;
-              break;
+          if (hasSessionTokens) {
+            const found = anonymizationSession.findTokensInText(text);
+            if (found.length > 0) hasTokens = true;
+          }
+
+          // Fallback to legacy per-message unmaskMap
+          if (!hasTokens && hasLegacyTokens) {
+            for (const [token] of unmaskMap) {
+              if (text.includes(token)) {
+                hasTokens = true;
+                break;
+              }
             }
           }
+
           if (hasTokens) addUnmaskButton(el);
         }
       }
@@ -381,16 +552,20 @@
     if (el._spHasUnmaskBtn) return;
     el._spHasUnmaskBtn = true;
 
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sp-unmask-wrapper';
+
     const btn = document.createElement('button');
     btn.className = 'sp-unmask-btn';
-    btn.textContent = 'Unmask Data';
-    btn.title = 'Toggle between masked and unmasked data';
+    btn.innerHTML = '&#x1F513; Unmask Data';
+    btn.title = 'Reveal original values hidden by SafePrompt';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!el._spUnmasked) {
         el._spMaskedHTML = el.innerHTML;
         unmaskElement(el);
-        btn.textContent = 'Mask Data';
+        btn.innerHTML = '&#x1F512; Mask Data';
+        btn.classList.add('sp-unmask-btn--active');
         // Clear Response Guard flags so revealed PII gets re-scanned
         el._spResponseScanned = false;
         el._spResponseFP = null;
@@ -401,27 +576,65 @@
       } else {
         el.innerHTML = el._spMaskedHTML;
         el._spUnmasked = false;
-        btn.textContent = 'Unmask Data';
+        btn.innerHTML = '&#x1F513; Unmask Data';
+        btn.classList.remove('sp-unmask-btn--active');
       }
     });
 
+    wrapper.appendChild(btn);
+
+    // Add token count badge
+    const tokenCount = countTokensInElement(el);
+    if (tokenCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'sp-unmask-count';
+      badge.textContent = `${tokenCount} masked`;
+      wrapper.appendChild(badge);
+    }
+
     if (el.parentNode) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'sp-unmask-wrapper';
-      wrapper.appendChild(btn);
       el.parentNode.insertBefore(wrapper, el);
     }
   }
 
+  function countTokensInElement(el) {
+    const text = el.textContent || '';
+    let count = 0;
+    const sessionMap = anonymizationSession.getCombinedMap();
+    for (const [token] of sessionMap) {
+      if (text.includes(token)) count++;
+    }
+    if (unmaskMap) {
+      for (const [token] of unmaskMap) {
+        if (text.includes(token) && !sessionMap.has(token)) count++;
+      }
+    }
+    return count;
+  }
+
   function unmaskElement(el) {
-    if (!unmaskMap || el._spUnmasked) return;
+    if (el._spUnmasked) return;
+
+    // Merge all available maps: session + legacy
+    const mergedMap = new Map();
+    const sessionMap = anonymizationSession.getCombinedMap();
+    for (const [token, original] of sessionMap) {
+      mergedMap.set(token, original);
+    }
+    if (unmaskMap) {
+      for (const [token, original] of unmaskMap) {
+        if (!mergedMap.has(token)) mergedMap.set(token, original);
+      }
+    }
+
+    if (mergedMap.size === 0) return;
 
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while ((node = walker.nextNode())) {
       let text = node.textContent;
       let changed = false;
-      for (const [token, original] of unmaskMap) {
+      for (const [token, original] of mergedMap) {
         if (text.includes(token)) {
           text = text.replaceAll(token, original);
           changed = true;
@@ -694,6 +907,7 @@
             range.deleteContents();
             range.insertNode(document.createTextNode(result.text));
             unmaskMap = result.map;
+            anonymizationSession.addMapping(result.map);
           }
           detector.rememberDetections(currentPlatform?.name || 'unknown', detections, 'context-mask').catch(() => {});
           detector.logActivity(currentPlatform?.name || 'unknown', detections, { platform: currentPlatform?.name || 'unknown' });
@@ -747,12 +961,15 @@
       if (changes.falsePositiveTrainerEnabled) detector.settings.falsePositiveTrainerEnabled = changes.falsePositiveTrainerEnabled.newValue;
       if (changes.falsePositiveRules) detector.settings.falsePositiveRules = changes.falsePositiveRules.newValue || {};
       if (changes.responseGuardEnabled !== undefined) detector.settings.responseGuardEnabled = changes.responseGuardEnabled.newValue;
+      if (changes.fileGuardEnabled !== undefined) detector.settings.fileGuardEnabled = changes.fileGuardEnabled.newValue;
+      if (changes.reversibleAnonymization !== undefined) detector.settings.reversibleAnonymization = changes.reversibleAnonymization.newValue;
     });
   }
 
-  // Expose Response Guard internals for testing
+  // Expose internals for testing
   if (typeof window !== 'undefined') {
     window._spResponseGuard = { scanResponseElement, textFingerprint, hideResponsePII };
+    window._spAnonymizationSession = anonymizationSession;
   }
 
   if (document.readyState === 'loading') {

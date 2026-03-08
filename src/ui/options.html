@@ -284,6 +284,8 @@
       <label><input type="checkbox" id="clipboardGuardianEnabled"> Clipboard Guardian</label>
       <label><input type="checkbox" id="falsePositiveTrainerEnabled"> False Positive Trainer</label>
       <label><input type="checkbox" id="responseGuardEnabled"> Response Guard <span style="font-size:11px;color:var(--text2)">— Scan AI responses for PII that may have been echoed or leaked</span></label>
+      <label><input type="checkbox" id="fileGuardEnabled" checked> File Upload Guard <span style="font-size:11px;color:var(--text2)">— Scan files (.txt, .csv, .docx, .pdf) before uploading to AI</span></label>
+      <label><input type="checkbox" id="reversibleAnonymization" checked> Reversible Anonymization <span style="font-size:11px;color:var(--text2)">— Auto-show unmask button when AI responses contain your redacted tokens</span></label>
       <div class="btn-group">
         <button class="btn btn--secondary" id="clearMemoryBtn">Clear Memory Guard Cache</button>
         <button class="btn btn--secondary" id="clearTrainerBtn">Clear Trainer Rules</button>

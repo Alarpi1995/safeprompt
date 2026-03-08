@@ -21,6 +21,8 @@
   const clipboardGuardianEnabled = document.getElementById('clipboardGuardianEnabled');
   const falsePositiveTrainerEnabled = document.getElementById('falsePositiveTrainerEnabled');
   const responseGuardEnabledEl = document.getElementById('responseGuardEnabled');
+  const fileGuardEnabledEl = document.getElementById('fileGuardEnabled');
+  const reversibleAnonymizationEl = document.getElementById('reversibleAnonymization');
   const clearMemoryBtn = document.getElementById('clearMemoryBtn');
   const clearTrainerBtn = document.getElementById('clearTrainerBtn');
   const savedMsg = document.getElementById('savedMsg');
@@ -75,6 +77,8 @@
     clipboardGuardianEnabled.checked = detector.settings.clipboardGuardianEnabled !== false;
     falsePositiveTrainerEnabled.checked = detector.settings.falsePositiveTrainerEnabled !== false;
     if (responseGuardEnabledEl) responseGuardEnabledEl.checked = detector.settings.responseGuardEnabled !== false;
+    if (fileGuardEnabledEl) fileGuardEnabledEl.checked = detector.settings.fileGuardEnabled !== false;
+    if (reversibleAnonymizationEl) reversibleAnonymizationEl.checked = detector.settings.reversibleAnonymization !== false;
     renderProfileSummary(detector.getProfile(detector.settings.profile));
     updateGuardButtons();
   }
@@ -256,6 +260,8 @@
     [clipboardGuardianEnabled, 'clipboardGuardianEnabled'],
     [falsePositiveTrainerEnabled, 'falsePositiveTrainerEnabled'],
     [responseGuardEnabledEl, 'responseGuardEnabled'],
+    [fileGuardEnabledEl, 'fileGuardEnabled'],
+    [reversibleAnonymizationEl, 'reversibleAnonymization'],
   ].filter(([el]) => el).forEach(([el, key]) => {
     el.addEventListener('change', async () => {
       detector.settings[key] = el.checked;

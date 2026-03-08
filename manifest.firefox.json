@@ -4,6 +4,12 @@
   "version": "1.2.0",
   "description": "Protect your sensitive data before sending to AI chatbots. Response Guard scans AI outputs for leaked PII. 11 languages. 100% local.",
   "permissions": ["storage", "activeTab", "contextMenus"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "safeprompt@aitechcx.com",
+      "strict_min_version": "109.0"
+    }
+  },
   "icons": {
     "16": "src/icons/icon16.png",
     "48": "src/icons/icon48.png",
@@ -58,7 +64,8 @@
     }
   ],
   "background": {
-    "service_worker": "src/background.js"
+    "scripts": ["src/core/browser-compat.js", "src/background.js"],
+    "type": "module"
   },
   "options_ui": {
     "page": "src/ui/options.html",

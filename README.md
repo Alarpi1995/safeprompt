@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/Alarpi1995/safeprompt/releases"><img src="https://img.shields.io/github/v/release/Alarpi1995/safeprompt?style=flat-square&color=blue" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-green?style=flat-square" alt="License" /></a>
-  <img src="https://img.shields.io/badge/tests-168%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-195%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/patterns-221+-purple?style=flat-square" alt="Patterns" />
   <img src="https://img.shields.io/badge/languages-11-orange?style=flat-square" alt="Languages" />
   <img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square" alt="Zero Dependencies" />
@@ -87,6 +87,9 @@ AI receives:  "My SSN is [SSN_1], email [EMAIL_2]"
 | **Context-Aware** | Understands "my password is X" vs normal text |
 | **Luhn Validation** | Validates credit cards, not just pattern matches |
 | **Privacy Score** | 0-100 score based on severity, count, and context of detections |
+| **Reversible Anonymization** | Session-level token mapping that persists across conversation turns |
+| **File Upload Guard** | Scans .txt, .csv, .docx, .pdf files before upload to AI (zero dependencies) |
+| **Multi-Browser** | Chrome, Firefox, and Edge support with unified browser API layer |
 | **4-Hour Auto-Expiry** | Token mappings expire automatically for security |
 | **Activity Log** | Track what was blocked with source (input/response), export as CSV |
 | **Safe Export** | Export conversations with PII auto-redacted (TXT, JSON, Markdown) |
@@ -160,16 +163,33 @@ Works automatically on:
 git clone https://github.com/Alarpi1995/safeprompt.git
 cd safeprompt
 npm install
-npm test    # 168 tests should pass
+npm test    # 195 tests should pass
 ```
 
-Then load in Chrome:
-1. Go to `chrome://extensions/`
+#### Chrome / Edge
+1. Go to `chrome://extensions/` (or `edge://extensions/`)
 2. Enable **Developer mode** (top right)
 3. Click **Load unpacked**
 4. Select the `safeprompt` folder
 
+#### Firefox
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select `manifest.firefox.json` from the `safeprompt` folder
+
+#### Build for Distribution
+```bash
+npm run build:chrome    # Build for Chrome/Edge
+npm run build:firefox   # Build for Firefox
+npm run build:all       # Build all browsers
+npm run zip:chrome      # Create Chrome zip
+npm run zip:firefox     # Create Firefox zip
+```
+
 ### Chrome Web Store
+Coming soon.
+
+### Firefox Add-ons (AMO)
 Coming soon.
 
 ---
@@ -204,6 +224,8 @@ Coming soon.
 - **Response Guard** - Scan AI responses for PII (enabled by default)
 - **Clipboard Guardian** - Intercept PII in paste events
 - **Memory Guard** - Track PII across conversation turns
+- **File Upload Guard** - Scan files before they are uploaded to AI chatbots
+- **Reversible Anonymization** - Auto-restore real data in AI responses using session-level token maps
 - **False Positive Trainer** - Mark false positives to improve accuracy
 
 ### Settings
@@ -228,10 +250,14 @@ Access via the extension popup or options page:
 
 ```
 safeprompt/
+  manifest.json            # Chrome/Edge manifest (Manifest V3)
+  manifest.firefox.json    # Firefox manifest (Manifest V3)
   src/
     core/
       detector.js          # PII detection engine (221+ patterns)
-      interceptor.js       # Form interceptor + Response Guard + unmask
+      interceptor.js       # Form interceptor + Response Guard + unmask + reversible anonymization
+      browser-compat.js    # Unified browser API layer (Chrome/Firefox/Edge)
+      file-scanner.js      # Zero-dependency file text extraction (.txt, .csv, .docx, .pdf)
       context-patterns.js  # Context-aware detection (all languages)
       names-dictionary.js  # 500+ names across 11 languages
     languages/
@@ -245,11 +271,16 @@ safeprompt/
       popup.html/js        # Extension popup + stats (incl. Resp PII)
       options.html/js      # Settings + behavior guards + activity log
       styles.css           # Dark mode + RTL + Response Guard badges
-    background.js          # Service worker
+    background.js          # Service worker (Chrome) / background script (Firefox)
+  scripts/
+    build.js               # Multi-browser build script
+    zip.js                 # Multi-browser packaging script
   tests/
     detector.test.js       # Core PII detection tests
     platform-detector.test.js # Platform detection tests
     response-guard.test.js # Response Guard tests
+    browser-compat.test.js # Browser compatibility layer tests
+    file-scanner.test.js   # File scanner tests
 ```
 
 ---
@@ -258,7 +289,8 @@ safeprompt/
 
 - **Pure JavaScript** - No frameworks, no build tools required
 - **Chrome Extension Manifest V3** - Latest extension platform
-- **Jest** - Testing framework (168 tests across 3 suites)
+- **Multi-Browser** - Chrome, Firefox, and Edge via unified browser API layer
+- **Jest** - Testing framework (195 tests across 5 suites)
 - **Zero Dependencies** - No npm packages in production
 
 ---
@@ -266,7 +298,7 @@ safeprompt/
 ## Testing
 
 ```bash
-npm test              # Run all 168 tests
+npm test              # Run all 195 tests
 npm test -- --watch   # Watch mode
 ```
 
@@ -274,6 +306,8 @@ Tests cover:
 - **detector.test.js** - PII patterns, validation, redaction, CSV export across 11 languages
 - **platform-detector.test.js** - Platform detection and selectors
 - **response-guard.test.js** - Response scanning, fingerprinting, masking, activity log integration
+- **browser-compat.test.js** - Unified browser API, storage, runtime, tabs, action APIs
+- **file-scanner.test.js** - File type detection, text extraction, DOCX/PDF parsing
 
 ---
 

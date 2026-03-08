@@ -72,10 +72,24 @@ npm install
 npm test
 ```
 
-Load the extension in Chrome:
-1. Navigate to `chrome://extensions/`
+Load the extension:
+
+**Chrome / Edge:**
+1. Navigate to `chrome://extensions/` (or `edge://extensions/`)
 2. Enable "Developer mode"
 3. Click "Load unpacked" and select the repo folder
+
+**Firefox:**
+1. Navigate to `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on"
+3. Select `manifest.firefox.json` from the repo folder
+
+**Build for distribution:**
+```bash
+npm run build:chrome    # Chrome/Edge build
+npm run build:firefox   # Firefox build
+npm run build:all       # All browsers
+```
 
 ## Pattern Guidelines
 
@@ -109,7 +123,7 @@ Load the extension in Chrome:
 
 ## Pull Request Process
 
-1. Ensure all tests pass: `npm test` (168 tests across 3 suites)
+1. Ensure all tests pass: `npm test` (195 tests across 5 suites)
 2. Add tests for new patterns or features
 3. Update README if adding languages/platforms/features
 4. One PR per feature/language
