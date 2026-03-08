@@ -457,6 +457,145 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Response Guard Badge
+   --------------------------------------------------------------------------- */
+
+.sp-response-guard {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-family: var(--sp-font);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 10;
+  transition: box-shadow 0.2s;
+  color: var(--sp-text);
+}
+
+.sp-response-guard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sp-response-guard__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sp-response-guard__count {
+  white-space: nowrap;
+}
+
+.sp-response-guard__panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 280px;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius, 12px);
+  box-shadow: var(--sp-shadow);
+  padding: 10px;
+  z-index: 11;
+}
+
+.sp-response-guard__panel--visible {
+  display: block;
+}
+
+.sp-response-guard__panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--sp-text);
+}
+
+.sp-response-guard__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--sp-bg-secondary);
+  border-radius: 6px;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.sp-response-guard__value {
+  flex: 1;
+  text-align: end;
+  color: var(--sp-text-secondary);
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-response-guard__more {
+  text-align: center;
+  font-size: 10px;
+  color: var(--sp-text-secondary);
+  padding: 2px;
+}
+
+.sp-response-guard__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sp-border);
+}
+
+.sp-response-guard__btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--sp-border);
+  border-radius: 6px;
+  background: var(--sp-bg-secondary);
+  color: var(--sp-text);
+  font-family: var(--sp-font);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sp-response-guard__btn:hover {
+  background: var(--sp-border);
+}
+
+.sp-response-guard--critical { border-color: var(--sp-critical); }
+.sp-response-guard--high { border-color: var(--sp-high); }
+.sp-response-guard--medium { border-color: var(--sp-medium); }
+.sp-response-guard--low { border-color: var(--sp-low); }
+
+[dir="rtl"] .sp-response-guard {
+  right: auto;
+  left: 4px;
+}
+
+[dir="rtl"] .sp-response-guard__panel {
+  right: auto;
+  left: 0;
+}
+
+[dir="rtl"] .sp-response-guard__value {
+  text-align: start;
+}
+
+/* ---------------------------------------------------------------------------
    Keyboard Shortcut Hint
    --------------------------------------------------------------------------- */
 

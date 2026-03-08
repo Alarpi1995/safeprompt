@@ -24,6 +24,7 @@ class SafePromptDetector {
       clipboardGuardianEnabled: true,
       falsePositiveTrainerEnabled: true,
       falsePositiveRules: {},
+      responseGuardEnabled: true,
     };
     this._maskMap = new Map();
     this._maskCounter = 0;
@@ -213,7 +214,7 @@ class SafePromptDetector {
       }
 
       chrome.storage.sync.get(
-        ['profile', 'policyPack', 'sensitivity', 'enabledCategories', 'enabledLanguages', 'allowlist', 'protectedTerms', 'isPaused', 'disabledSites', 'memoryGuardEnabled', 'clipboardGuardianEnabled', 'falsePositiveTrainerEnabled', 'falsePositiveRules'],
+        ['profile', 'policyPack', 'sensitivity', 'enabledCategories', 'enabledLanguages', 'allowlist', 'protectedTerms', 'isPaused', 'disabledSites', 'memoryGuardEnabled', 'clipboardGuardianEnabled', 'falsePositiveTrainerEnabled', 'falsePositiveRules', 'responseGuardEnabled'],
         (data) => {
           if (data.profile) this.settings.profile = data.profile;
           if (data.policyPack) this.settings.policyPack = data.policyPack;
@@ -228,6 +229,7 @@ class SafePromptDetector {
           if (data.clipboardGuardianEnabled !== undefined) this.settings.clipboardGuardianEnabled = data.clipboardGuardianEnabled;
           if (data.falsePositiveTrainerEnabled !== undefined) this.settings.falsePositiveTrainerEnabled = data.falsePositiveTrainerEnabled;
           if (data.falsePositiveRules) this.settings.falsePositiveRules = data.falsePositiveRules;
+          if (data.responseGuardEnabled !== undefined) this.settings.responseGuardEnabled = data.responseGuardEnabled;
 
           chrome.storage.local.get(['conversationMemory'], (localData) => {
             this._conversationMemory = Array.isArray(localData.conversationMemory) ? localData.conversationMemory : [];
@@ -257,6 +259,7 @@ class SafePromptDetector {
           clipboardGuardianEnabled: this.settings.clipboardGuardianEnabled,
           falsePositiveTrainerEnabled: this.settings.falsePositiveTrainerEnabled,
           falsePositiveRules: this.settings.falsePositiveRules,
+          responseGuardEnabled: this.settings.responseGuardEnabled,
         };
         chrome.storage.sync.set(data, resolve);
       } else {
@@ -764,6 +767,7 @@ class SafePromptDetector {
       score: analysis.score,
       profile: this.settings.profile,
       policyPack: this.settings.policyPack,
+      source: context.source || 'input',
     };
 
     return new Promise((resolve) => {
@@ -792,7 +796,7 @@ class SafePromptDetector {
 
   async getStats() {
     const log = await this.getActivityLog();
-    const stats = { totalBlocked: 0, thisMonth: 0, averageScore: 0, memoryEntries: this._conversationMemory.length, trainedIgnores: this.getFalsePositiveRuleCount(), byType: {}, byPlatform: {}, bySeverity: {} };
+    const stats = { totalBlocked: 0, thisMonth: 0, averageScore: 0, responseGuardDetections: 0, memoryEntries: this._conversationMemory.length, trainedIgnores: this.getFalsePositiveRuleCount(), byType: {}, byPlatform: {}, bySeverity: {} };
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
@@ -803,6 +807,9 @@ class SafePromptDetector {
       totalScore += entry.score || 0;
       if (entry.timestamp >= monthStart.getTime()) {
         stats.thisMonth += entry.count;
+      }
+      if (entry.source === 'response') {
+        stats.responseGuardDetections += entry.count;
       }
       stats.byPlatform[entry.platform] = (stats.byPlatform[entry.platform] || 0) + entry.count;
       stats.bySeverity[entry.severity] = (stats.bySeverity[entry.severity] || 0) + 1;
@@ -816,10 +823,10 @@ class SafePromptDetector {
   }
 
   exportLogCSV(log) {
-    const header = 'Timestamp,Platform,Count,Severity,Score,Profile,PolicyPack,Types\n';
+    const header = 'Timestamp,Platform,Count,Severity,Score,Profile,PolicyPack,Source,Types\n';
     const rows = log.map((e) => {
       const date = new Date(e.timestamp).toISOString();
-      return `${date},${e.platform},${e.count},${e.severity},${e.score || 0},${e.profile || 'balanced'},${e.policyPack || 'none'},"${e.types.join(', ')}"`;
+      return `${date},${e.platform},${e.count},${e.severity},${e.score || 0},${e.profile || 'balanced'},${e.policyPack || 'none'},${e.source || 'input'},"${e.types.join(', ')}"`;
     });
     return header + rows.join('\n');
   }

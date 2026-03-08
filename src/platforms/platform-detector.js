@@ -11,6 +11,7 @@ const SafePromptPlatforms = {
       inputSelector: '#prompt-textarea, textarea[data-id="root"]',
       submitSelector: 'button[data-testid="send-button"], button[data-testid="fruitjuice-send-button"]',
       responseSelector: '.markdown, .result-streaming, [data-message-author-role="assistant"]',
+      streamingSelector: '.result-streaming',
       conversationSelector: '[data-message-author-role]',
       formSelector: 'form',
     },
@@ -20,6 +21,7 @@ const SafePromptPlatforms = {
       inputSelector: '[contenteditable="true"].ProseMirror, div[contenteditable="true"]',
       submitSelector: 'button[aria-label="Send Message"], button[aria-label="Send message"]',
       responseSelector: '.font-claude-message, [data-is-streaming]',
+      streamingSelector: '[data-is-streaming]',
       conversationSelector: '[data-testid*="message"], .font-claude-message',
       formSelector: 'fieldset, form',
     },
@@ -29,6 +31,7 @@ const SafePromptPlatforms = {
       inputSelector: '.ql-editor, rich-textarea .textarea',
       submitSelector: 'button.send-button, button[aria-label="Send message"]',
       responseSelector: '.response-content, .model-response-text',
+      streamingSelector: null,
       conversationSelector: 'message-content, .query-text, .response-content, .model-response-text',
       formSelector: 'form',
     },
@@ -38,6 +41,7 @@ const SafePromptPlatforms = {
       inputSelector: '#searchbox, textarea',
       submitSelector: 'button[aria-label="Submit"]',
       responseSelector: '.ac-textBlock',
+      streamingSelector: null,
       conversationSelector: '.ac-textBlock, [data-author], [class*="message"]',
       formSelector: 'form',
     },
@@ -47,6 +51,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea#chat-input, textarea',
       submitSelector: 'button[data-testid="send-button"], div[role="button"]',
       responseSelector: '.ds-markdown, .markdown-body',
+      streamingSelector: null,
       conversationSelector: '.ds-markdown, .markdown-body, [class*="message"]',
       formSelector: 'form',
     },
@@ -56,6 +61,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea[placeholder]',
       submitSelector: 'button[aria-label="Submit"]',
       responseSelector: '.prose, .markdown',
+      streamingSelector: null,
       conversationSelector: '.prose, .markdown, [data-testid*="message"]',
       formSelector: 'form',
     },
@@ -65,6 +71,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea',
       submitSelector: 'button[type="submit"]',
       responseSelector: '.message-content',
+      streamingSelector: null,
       conversationSelector: '.message-content, [class*="message"]',
       formSelector: 'form',
     },
@@ -74,6 +81,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea[class*="TextArea"]',
       submitSelector: 'button[class*="SendButton"]',
       responseSelector: '.Message_botMessageBubble__aYctV, [class*="Message_botMessage"]',
+      streamingSelector: null,
       conversationSelector: '[class*="Message_"], .Message_botMessageBubble__aYctV',
       formSelector: 'form, footer',
     },
@@ -83,6 +91,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea',
       submitSelector: 'button[type="submit"]',
       responseSelector: '.prose',
+      streamingSelector: null,
       conversationSelector: '.prose, [class*="message"]',
       formSelector: 'form',
     },
@@ -92,6 +101,7 @@ const SafePromptPlatforms = {
       inputSelector: 'textarea[placeholder]',
       submitSelector: 'button[type="submit"]',
       responseSelector: '.prose',
+      streamingSelector: null,
       conversationSelector: '.prose, [class*="message"]',
       formSelector: 'form',
     },
@@ -115,6 +125,16 @@ const SafePromptPlatforms = {
   getSubmitButton(platform) {
     if (!platform) return null;
     return this._pickPreferredElement(platform.submitSelector, (el) => this._isUsableElement(el) && !el.disabled);
+  },
+
+  isResponseStreaming(platform, el) {
+    if (!platform?.streamingSelector) return false;
+    try {
+      return (typeof el.matches === 'function' && el.matches(platform.streamingSelector)) ||
+        (typeof el.closest === 'function' && !!el.closest(platform.streamingSelector));
+    } catch (_) {
+      return false;
+    }
   },
 
   getResponseElements(platform) {

@@ -713,7 +713,7 @@ describe('Core - CSV Export', () => {
       { timestamp: 1709750400000, platform: 'ChatGPT', count: 3, severity: 'high', score: 64, profile: 'developer', policyPack: 'internal_ops', types: ['email', 'ssn'] },
     ];
     const csv = d.exportLogCSV(log);
-    expect(csv).toContain('Timestamp,Platform,Count,Severity,Score,Profile,PolicyPack,Types');
+    expect(csv).toContain('Timestamp,Platform,Count,Severity,Score,Profile,PolicyPack,Source,Types');
     expect(csv).toContain('ChatGPT');
     expect(csv).toContain('developer');
     expect(csv).toContain('internal_ops');

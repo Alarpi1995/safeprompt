@@ -23,6 +23,7 @@
   let isShowingRedacted = false;
   let bypassInterceptionUntil = 0;
   let lastClipboardCapture = null;
+  let responseGuardTimers = new WeakMap();
 
   async function init() {
     await detector.loadSettings();
@@ -344,20 +345,32 @@
 
   function observeResponses() {
     const observer = new MutationObserver(() => {
-      if (!unmaskMap || unmaskMap.size === 0) return;
-
-      const responses = platforms.getResponseElements(currentPlatform);
-      for (const el of responses) {
-        if (el._spUnmasked) continue;
-        const text = el.textContent || '';
-        let hasTokens = false;
-        for (const [token] of unmaskMap) {
-          if (text.includes(token)) {
-            hasTokens = true;
-            break;
+      // --- Existing unmask token flow ---
+      if (unmaskMap && unmaskMap.size > 0) {
+        const responses = platforms.getResponseElements(currentPlatform);
+        for (const el of responses) {
+          if (el._spUnmasked) continue;
+          const text = el.textContent || '';
+          let hasTokens = false;
+          for (const [token] of unmaskMap) {
+            if (text.includes(token)) {
+              hasTokens = true;
+              break;
+            }
           }
+          if (hasTokens) addUnmaskButton(el);
         }
-        if (hasTokens) addUnmaskButton(el);
+      }
+
+      // --- Response Guard flow ---
+      if (!detector.settings.responseGuardEnabled || detector.settings.isPaused) return;
+      const allResponses = platforms.getResponseElements(currentPlatform);
+      let processed = 0;
+      for (const el of allResponses) {
+        if (processed >= 5) break;
+        if (el._spResponseScanned) continue;
+        scheduleResponseScan(el);
+        processed++;
       }
     });
 
@@ -378,6 +391,13 @@
         el._spMaskedHTML = el.innerHTML;
         unmaskElement(el);
         btn.textContent = 'Mask Data';
+        // Clear Response Guard flags so revealed PII gets re-scanned
+        el._spResponseScanned = false;
+        el._spResponseFP = null;
+        if (el._spResponseBadge) {
+          el._spResponseBadge.remove();
+          el._spResponseBadge = null;
+        }
       } else {
         el.innerHTML = el._spMaskedHTML;
         el._spUnmasked = false;
@@ -411,6 +431,162 @@
     }
 
     el._spUnmasked = true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Response Guard
+  // ---------------------------------------------------------------------------
+
+  function textFingerprint(text) {
+    if (!text) return '';
+    const len = text.length;
+    const head = text.slice(0, 50);
+    const tail = text.slice(-50);
+    return `${len}:${head}:${tail}`;
+  }
+
+  function scanResponseElement(el) {
+    if (!el || el._spResponseScanned) return;
+    if (detector.settings.isPaused) return;
+    if (!detector.settings.responseGuardEnabled) return;
+
+    const text = platforms._extractText(el);
+    if (!text || text.length < 3) return;
+
+    const fp = textFingerprint(text);
+    if (el._spResponseFP === fp) return;
+    el._spResponseFP = fp;
+
+    const detections = detector.scan(text);
+    el._spResponseScanned = true;
+
+    if (detections.length === 0) return;
+
+    attachResponseGuardBadge(el, detections, text);
+    detector.logActivity(currentPlatform?.name || 'unknown', detections, {
+      platform: currentPlatform?.name || 'unknown',
+      source: 'response',
+    });
+  }
+
+  function scheduleResponseScan(el) {
+    if (el._spResponseScanned) return;
+    if (!detector.settings.responseGuardEnabled) return;
+
+    if (responseGuardTimers.has(el)) {
+      clearTimeout(responseGuardTimers.get(el));
+    }
+
+    if (platforms.isResponseStreaming(currentPlatform, el)) {
+      responseGuardTimers.set(el, setTimeout(() => scheduleResponseScan(el), 800));
+      return;
+    }
+
+    responseGuardTimers.set(el, setTimeout(() => {
+      responseGuardTimers.delete(el);
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => scanResponseElement(el), { timeout: 2000 });
+      } else {
+        setTimeout(() => scanResponseElement(el), 50);
+      }
+    }, 800));
+  }
+
+  function attachResponseGuardBadge(el, detections, text) {
+    if (el._spResponseBadge) {
+      el._spResponseBadge.remove();
+    }
+
+    const analysis = detector.analyzeDetections(text, detections, {
+      platform: currentPlatform?.name || 'unknown',
+      source: 'response',
+    });
+    const level = analysis.level || 'medium';
+    const colors = { safe: '#22c55e', low: '#3b82f6', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+    const color = colors[level] || colors.medium;
+    const count = detections.length;
+
+    const badge = document.createElement('div');
+    badge.className = `sp-response-guard sp-response-guard--${level}`;
+    badge.setAttribute('dir', 'auto');
+
+    const items = detections.slice(0, 5).map((d) => `
+      <div class="sp-response-guard__item">
+        <span>${d.icon || ''}</span>
+        <span>${escapeHTMLLocal(d.label)}</span>
+        <span class="sp-response-guard__value">${escapeHTMLLocal(d.masked)}</span>
+      </div>
+    `).join('');
+    const moreCount = count > 5 ? count - 5 : 0;
+
+    badge.innerHTML = `
+      <div class="sp-response-guard__dot" style="background:${color}"></div>
+      <span class="sp-response-guard__count">${count} PII</span>
+      <div class="sp-response-guard__panel">
+        <div class="sp-response-guard__panel-title">Response Guard: ${count} item${count > 1 ? 's' : ''} detected</div>
+        ${items}
+        ${moreCount > 0 ? `<div class="sp-response-guard__more">+${moreCount} more</div>` : ''}
+        <div class="sp-response-guard__actions">
+          <button class="sp-response-guard__btn" data-rg-action="hide">Hide PII</button>
+          <button class="sp-response-guard__btn" data-rg-action="dismiss">Dismiss</button>
+        </div>
+      </div>
+    `;
+
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const actionBtn = e.target.closest('[data-rg-action]');
+      if (actionBtn) {
+        const action = actionBtn.dataset.rgAction;
+        if (action === 'hide') {
+          hideResponsePII(el, detections);
+          badge.remove();
+          el._spResponseBadge = null;
+        } else if (action === 'dismiss') {
+          badge.remove();
+          el._spResponseBadge = null;
+        }
+        return;
+      }
+      const panel = badge.querySelector('.sp-response-guard__panel');
+      if (panel) panel.classList.toggle('sp-response-guard__panel--visible');
+    });
+
+    if (el.parentNode) {
+      const style = window.getComputedStyle(el.parentNode);
+      if (style.position === 'static') {
+        el.parentNode.style.position = 'relative';
+      }
+      el.parentNode.insertBefore(badge, el);
+    }
+
+    el._spResponseBadge = badge;
+  }
+
+  function hideResponsePII(el, detections) {
+    if (!detections.length) return;
+    el._spOriginalHTML = el.innerHTML;
+
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+      let text = node.textContent;
+      let changed = false;
+      for (const det of detections) {
+        if (text.includes(det.value)) {
+          text = text.replaceAll(det.value, det.masked);
+          changed = true;
+        }
+      }
+      if (changed) node.textContent = text;
+    }
+    el._spResponseRedacted = true;
+  }
+
+  function escapeHTMLLocal(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   function collectConversationExportTurns() {
@@ -570,7 +746,13 @@
       if (changes.clipboardGuardianEnabled) detector.settings.clipboardGuardianEnabled = changes.clipboardGuardianEnabled.newValue;
       if (changes.falsePositiveTrainerEnabled) detector.settings.falsePositiveTrainerEnabled = changes.falsePositiveTrainerEnabled.newValue;
       if (changes.falsePositiveRules) detector.settings.falsePositiveRules = changes.falsePositiveRules.newValue || {};
+      if (changes.responseGuardEnabled !== undefined) detector.settings.responseGuardEnabled = changes.responseGuardEnabled.newValue;
     });
+  }
+
+  // Expose Response Guard internals for testing
+  if (typeof window !== 'undefined') {
+    window._spResponseGuard = { scanResponseElement, textFingerprint, hideResponsePII };
   }
 
   if (document.readyState === 'loading') {

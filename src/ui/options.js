@@ -20,6 +20,7 @@
   const memoryGuardEnabled = document.getElementById('memoryGuardEnabled');
   const clipboardGuardianEnabled = document.getElementById('clipboardGuardianEnabled');
   const falsePositiveTrainerEnabled = document.getElementById('falsePositiveTrainerEnabled');
+  const responseGuardEnabledEl = document.getElementById('responseGuardEnabled');
   const clearMemoryBtn = document.getElementById('clearMemoryBtn');
   const clearTrainerBtn = document.getElementById('clearTrainerBtn');
   const savedMsg = document.getElementById('savedMsg');
@@ -73,6 +74,7 @@
     memoryGuardEnabled.checked = detector.settings.memoryGuardEnabled !== false;
     clipboardGuardianEnabled.checked = detector.settings.clipboardGuardianEnabled !== false;
     falsePositiveTrainerEnabled.checked = detector.settings.falsePositiveTrainerEnabled !== false;
+    if (responseGuardEnabledEl) responseGuardEnabledEl.checked = detector.settings.responseGuardEnabled !== false;
     renderProfileSummary(detector.getProfile(detector.settings.profile));
     updateGuardButtons();
   }
@@ -253,7 +255,8 @@
     [memoryGuardEnabled, 'memoryGuardEnabled'],
     [clipboardGuardianEnabled, 'clipboardGuardianEnabled'],
     [falsePositiveTrainerEnabled, 'falsePositiveTrainerEnabled'],
-  ].forEach(([el, key]) => {
+    [responseGuardEnabledEl, 'responseGuardEnabled'],
+  ].filter(([el]) => el).forEach(([el, key]) => {
     el.addEventListener('change', async () => {
       detector.settings[key] = el.checked;
       await detector.saveSettings();
@@ -304,13 +307,14 @@
         <td>${entry.score || 0}</td>
         <td>${escapeHTML(entry.profile || 'balanced')}</td>
         <td>${escapeHTML(entry.policyPack || 'none')}</td>
+        <td>${escapeHTML(entry.source || 'input')}</td>
         <td>${escapeHTML(entry.types.join(', '))}</td>
       </tr>`;
     }).join('');
 
     activityLogDiv.innerHTML = `
       <table class="log-table">
-        <thead><tr><th>Date</th><th>Platform</th><th>Count</th><th>Severity</th><th>Score</th><th>Profile</th><th>Policy</th><th>Types</th></tr></thead>
+        <thead><tr><th>Date</th><th>Platform</th><th>Count</th><th>Severity</th><th>Score</th><th>Profile</th><th>Policy</th><th>Source</th><th>Types</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;

@@ -18,6 +18,7 @@
   const totalBlockedEl = document.getElementById('totalBlocked');
   const thisMonthEl = document.getElementById('thisMonth');
   const averageScoreEl = document.getElementById('averageScore');
+  const responseGuardCountEl = document.getElementById('responseGuardCount');
   const scanInput = document.getElementById('scanInput');
   const scanBtn = document.getElementById('scanBtn');
   const resultsDiv = document.getElementById('results');
@@ -56,6 +57,7 @@
     totalBlockedEl.textContent = stats.totalBlocked;
     thisMonthEl.textContent = stats.thisMonth;
     averageScoreEl.textContent = stats.averageScore;
+    if (responseGuardCountEl) responseGuardCountEl.textContent = stats.responseGuardDetections || 0;
   }
 
   function showInlineMessage(message) {
